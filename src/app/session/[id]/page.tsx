@@ -95,7 +95,7 @@ export default function SessionRoom() {
     } finally {
       setIsLoadingRestaurants(false);
     }
-  }, [sessionId, supabase, setRestaurants, setCurrentIndex, setIsLoadingRestaurants]); // Removed sessionId and supabase as they are stable
+  }, [setRestaurants, setCurrentIndex, setIsLoadingRestaurants, sessionId, supabase]); // Reordered for clarity, sessionId and supabase are stable
 
   const calculateWinner = useCallback(async () => {
     const { data: allVotes } = await supabase
@@ -389,9 +389,9 @@ export default function SessionRoom() {
     );
   }
 
-  if (view === 'finished') {
+  if (view === 'finished') { // Consolidated finished view logic
     return (
-      <div className="flex flex-col min-h-screen bg-[#FF4D00] text-white p-6">
+      <div className="flex flex-col min-h-screen bg-[#FF4D00] text-white p-6 text-center">
         <header className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-2"><div className="bg-white p-2 rounded-full"><Utensils className="w-6 h-6 text-[#FF4D00]" /></div><span className="font-black italic uppercase tracking-tighter text-xl">Munch Match</span></div>
           <button onClick={copyLink} className="bg-white/20 hover:bg-white/30 p-3 rounded-full transition-colors flex items-center gap-2">
@@ -399,44 +399,146 @@ export default function SessionRoom() {
             <span className="text-xs font-bold uppercase">{copied ? 'Copied!' : 'Share'}</span>
           </button>
         </header>
-        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex-1 flex flex-col items-center justify-center text-center w-full max-w-sm mx-auto space-y-8 bg-white/10 p-10 rounded-[3rem] backdrop-blur-md border border-white/20">
-          <div className="bg-[#FFB800] w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-2xl">
-            <Utensils className="w-10 h-10 text-[#FF4D00]" />
-          </div>
-          <h1 className="text-4xl font-black uppercase italic tracking-tighter">It&apos;s a Match!</h1> {/* Ensure winner is not null here */}
-          <div className="space-y-2">
-            <p className="text-white/60 font-bold uppercase tracking-widest text-xs">You should head to:</p>
-            <h2 className="text-5xl font-black uppercase italic text-[#FFB800] leading-none">{winner?.name}</h2>
-          </div>
-          <button 
-            onClick={() => winner && window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(winner.name)}&query_place_id=${winner.id}`, '_blank')}
-            className="w-full bg-[#FFB800] text-[#FF4D00] py-4 rounded-2xl font-black text-xl uppercase flex items-center justify-center gap-2"
-          >
-            <Navigation className="w-6 h-6" /> Get Directions
-          </button>
-          <button onClick={() => typeof window !== 'undefined' && window.location.reload()} className="w-full bg-white text-[#FF4D00] py-4 rounded-2xl font-black text-xl uppercase tracking-tighter">Try Again</button>
-        </motion.div>
+        
+        {winner ? (
+          <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex-1 flex flex-col items-center justify-center text-center w-full max-w-sm mx-auto space-y-8 bg-white/10 p-10 rounded-[3rem] backdrop-blur-md border border-white/20">
+            <div className="bg-[#FFB800] w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-2xl">
+              <Utensils className="w-10 h-10 text-[#FF4D00]" />
+            </div>
+            <h1 className="text-4xl font-black uppercase italic tracking-tighter">It&apos;s a Match!</h1>
+            <div className="space-y-2">
+              <p className="text-white/60 font-bold uppercase tracking-widest text-xs">You should head to:</p>
+              <h2 className="text-5xl font-black uppercase italic text-[#FFB800] leading-none">{winner.name}</h2>
+            </div>
+            <button 
+              onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(winner.name)}&query_place_id=${winner.id}`, '_blank')}
+              className="w-full bg-[#FFB800] text-[#FF4D00] py-4 rounded-2xl font-black text-xl uppercase flex items-center justify-center gap-2"
+            >
+              <Navigation className="w-6 h-6" /> Get Directions
+            </button>
+            <button onClick={() => typeof window !== 'undefined' && window.location.reload()} className="w-full bg-white text-[#FF4D00] py-4 rounded-2xl font-black text-xl uppercase tracking-tighter">Try Again</button>
+          </motion.div>
+        ) : (
+          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex-1 flex flex-col items-center justify-center max-w-sm mx-auto space-y-6">
+            <AlertTriangle className="w-16 h-16 text-[#FFB800]" />
+            <h1 className="text-5xl font-black italic uppercase leading-tight tracking-tighter">Undecided?!</h1>
+            <p className="text-white/80 font-bold">Unanimity failed. Here are the top contenders. Pick one fast!</p>
+            
+            <div className="w-full space-y-4">
+              {potentialWinners.map((p) => (
+                <button 
+                  key={p.id}
+                  onClick={() => setWinner(p)}
+                  className="w-full bg-white/10 hover:bg-white/20 border border-white/20 p-6 rounded-3xl text-left flex justify-between items-center group"
+                >
+                  <span className="text-2xl font-black italic uppercase group-hover:text-[#FFB800] transition-colors">{p.name}</span>
+                  <HelpCircle className="w-6 h-6 text-white/40" />
+                </button>
+              ))}
+            </div>
+            <button onClick={() => typeof window !== 'undefined' && window.location.reload()} className="w-full bg-white text-[#FF4D00] py-4 rounded-2xl font-black text-xl uppercase tracking-tighter">Try Again</button>
+          </motion.div>
+        )}
       </div>
     );
   }
 
-  if (view === 'finished' && !winner && potentialWinners.length > 0) {
+  if (view === 'swiping') {
     return (
-      <div className="flex flex-col min-h-screen bg-[#FF4D00] text-white p-6 text-center">
-        <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex-1 flex flex-col items-center justify-center max-w-sm mx-auto space-y-6">
-          <AlertTriangle className="w-16 h-16 text-[#FFB800]" />
-          <h1 className="text-5xl font-black italic uppercase leading-tight tracking-tighter">Undecided?!</h1>
-          <p className="text-white/80 font-bold">Unanimity failed. Here are the top contenders. Pick one fast!</p>
-          
-          <div className="w-full space-y-4">
-            {potentialWinners.map((p) => (
-              <button 
-                key={p.id}
-                onClick={() => setWinner(p)}
-                className="w-full bg-white/10 hover:bg-white/20 border border-white/20 p-6 rounded-3xl text-left flex justify-between items-center group"
-              >
-                <span className="text-2xl font-black italic uppercase group-hover:text-[#FFB800] transition-colors">{p.name}</span>
-                <HelpCircle className="w-6 h-6 text-white/40" />
+      <div className="flex flex-col min-h-screen bg-[#FF4D00] overflow-hidden">
+        <header className="p-6 flex justify-between items-center z-20">
+          <div className="flex items-center gap-2"><div className="bg-white p-2 rounded-full"><Utensils className="w-4 h-4 text-[#FF4D00]" /></div><span className="font-black italic uppercase tracking-tighter text-white">Munch Match</span></div>
+          <div className="flex items-center gap-4">
+            <button onClick={copyLink} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition-colors flex items-center gap-2">
+              {copied ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <Share2 className="w-4 h-4" />}
+              <span className="text-[10px] font-bold uppercase">{copied ? 'Copied!' : 'Share'}</span>
+            </button>
+            <div className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-widest">{currentIndex + 1} / {restaurants.length}</div>
+          </div>
+        </header>
+        <div className="flex-1 relative flex items-center justify-center">
+          <AnimatePresence>
+            <SwipeCard 
+              key={restaurants[currentIndex].id} 
+              restaurant={restaurants[currentIndex]} 
+              onSwipe={handleSwipe} 
+              hasUsedStar={hasUsedStar}
+            />
+          </AnimatePresence>
+        </div>
+        <div className="p-10 flex justify-center items-center gap-8 z-10">
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col min-h-screen bg-[#FF4D00] text-white p-6">
+      <header className="flex justify-between items-center mb-12">
+        <div className="flex items-center gap-2"><div className="bg-white p-2 rounded-full"><Utensils className="w-6 h-6 text-[#FF4D00]" /></div><span className="font-black italic uppercase tracking-tighter text-xl">Munch Match</span></div>
+        <button onClick={copyLink} className="bg-white/20 hover:bg-white/30 p-3 rounded-full transition-colors flex items-center gap-2">
+          {copied ? <CheckCircle2 className="w-5 h-5 text-green-400" /> : <Share2 className="w-5 h-5" />}
+          <span className="text-xs font-bold uppercase">{copied ? 'Copied!' : 'Share'}</span>
+        </button>
+      </header>
+      <main className="flex-1 max-w-md mx-auto w-full space-y-8">
+        <div className="text-center"><h1 className="text-4xl font-black uppercase italic mb-2 tracking-tighter">Waiting Room</h1><p className="text-white/60 font-medium">Invite your friends. When everyone is here, start the match!</p></div>
+        <div className="bg-white/10 rounded-3xl p-6 border border-white/20 min-h-[300px]">
+          <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-[#FFB800]" />
+              <h3 className="font-black uppercase tracking-widest text-sm">Squad ({participants.length})</h3>
+            </div>
+            <span className="text-[10px] font-black uppercase text-white/40">Progress</span>
+          </div>
+          <ul className="space-y-4">
+            {participants.map((p, i) => (
+              <li key={p.id} className="flex items-center justify-between bg-white/5 p-4 rounded-2xl">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-[#FFB800] rounded-full flex items-center justify-center font-black text-[#FF4D00]">{p.guest_name ? p.guest_name[0].toUpperCase() : '?'}</div>
+                  <span className="font-bold text-lg">{p.guest_name} {i === 0 && <span className="text-[10px] bg-white/20 px-2 py-1 rounded-full ml-2 uppercase">Host</span>}</span>
+                </div>
+                <div className="text-xs font-black text-[#FFB800]">
+                  {progress[p.id] || 0}/{restaurants.length}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {currentIndex >= restaurants.length && !sessionData?.results_revealed && (
+           <div className="text-center p-4 bg-white/10 rounded-2xl border border-[#FFB800]">
+              <p className="font-black italic uppercase text-[#FFB800]">You&apos;re done swiping!</p>
+              <p className="text-xs text-white/60 uppercase">Waiting for the host to reveal results...</p>
+           </div>
+        )}
+
+        {/* Desktop-Friendly Share Section */}
+        <div className="bg-white/5 rounded-3xl p-4 border border-white/10 flex flex-col gap-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-2">Invite Link</p>
+          <div className="flex gap-2">
+            <div className="flex-1 bg-black/20 rounded-xl px-4 py-3 text-xs font-mono truncate text-white/60 border border-white/5">
+              {typeof window !== 'undefined' ? window.location.href : 'Loading...'}
+            </div>
+            <button 
+              onClick={copyLink}
+              className="bg-white text-[#FF4D00] px-4 rounded-xl font-bold text-xs uppercase hover:bg-[#FFB800] transition-colors"
+            >
+              {copied ? 'Saved!' : 'Copy'}
+            </button>
+          </div>
+        </div>
+
+        {participants[0]?.id === currentParticipantId && !sessionData?.is_active && !sessionData?.is_async && (
+           <button onClick={handleStartSwiping} disabled={participants.length === 0} className="w-full bg-[#FFB800] text-[#FF4D00] py-6 rounded-3xl font-black text-2xl uppercase tracking-tighter shadow-2xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"><Play className="w-8 h-8 fill-current" />Start Swiping</button>
+        )}
+        {participants[0]?.id === currentParticipantId && (sessionData?.is_active || sessionData?.is_async) && !sessionData?.results_revealed && (
+           <button onClick={handleRevealResults} className="w-full bg-white text-[#FF4D00] py-6 rounded-3xl font-black text-2xl uppercase tracking-tighter shadow-2xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3"><CheckCircle2 className="w-8 h-8" />Reveal Results</button>
+        )}
+      </main>
+    </div>
+  );
+}
               </button>
             ))}
           </div>
