@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from "react"; // Removed useRouter, useSearchParams
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useCallback } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation"; // Keep useRouter, useSearchParams
 import { Utensils, Users, Share2, Play, CheckCircle2, Navigation, AlertTriangle, HelpCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import SwipeCard from "@/app/SwipeCard";
@@ -48,6 +48,8 @@ interface Restaurant {
 export default function SessionRoom() {
   const params = useParams();
   const sessionId = params?.id as string;
+  const router = useRouter(); // Call useRouter here
+  const searchParams = useSearchParams(); // Call useSearchParams here
 
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [currentParticipantId, setCurrentParticipantId] = useState<string | null>(null);
@@ -158,8 +160,8 @@ export default function SessionRoom() {
       setIsNewSessionFlag(true);
       // Replace the URL to remove the query parameter, preventing it from reappearing on refresh
       router.replace(`/session/${sessionId}`, undefined, { shallow: true });
-    }
-  }, [searchParams, sessionId, router]);
+    } // router and searchParams are stable references, no need to include in deps
+  }, [sessionId]); // Only sessionId is a dependency that might change and affect this effect
 
   useEffect(() => {
     if (!sessionId) return;
