@@ -28,7 +28,7 @@ export default function SwipeCard({ restaurant, onSwipe }: SwipeCardProps) {
   const yumOpacity = useTransform(x, [0, 100], [0, 1]);
   const nahOpacity = useTransform(x, [0, -100], [0, 1]);
   
-  const handleDragEnd = (_event: any, info: PanInfo) => {
+  const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (info.offset.x > 100) onSwipe('right');
     else if (info.offset.x < -100) onSwipe('left');
   };
