@@ -27,6 +27,11 @@ export async function GET(request: Request) {
 
     const data = await response.json();
 
+    if (!response.ok) {
+      console.error('Google API Error:', data);
+      return NextResponse.json({ error: data.error?.message || 'Google API Error' }, { status: response.status });
+    }
+
     if (!data.places) {
       return NextResponse.json([]);
     }
