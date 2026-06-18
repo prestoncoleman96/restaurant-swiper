@@ -31,21 +31,24 @@ export async function GET(request: Request) {
       return NextResponse.json([]);
     }
 
-    const formatted = data.places.slice(0, 20).map((r: any) => ({
-      id: r.id,
-      name: r.displayName?.text || 'Unknown Restaurant',
-      image: r.photos 
-        ? `https://places.googleapis.com/v1/${r.photos[0].name}/media?maxHeightPx=800&maxWidthPx=800&key=${apiKey}`
-        : "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800", // Fallback image
-      rating: r.rating || 0,
-      distance: "Nearby", 
-      reviews: {
-        high: "Excellent food and service!",
-        mid: "A solid choice for the area.",
-        low: "Service was a bit slow, but food was okay."
-      },
-      dishes: ["Local Favorite", "Top Rated"]
-    }));
+    const formatted = data.places.slice(0, 20).map((r: any) => {
+      const sortedReviews = r.reviews?.sort((a: any, b: any) => (b.rating || 0) - (a.rating || 0)) || [];
+      return {
+        id: r.id,
+        name: r.displayName?.text || 'Unknown Restaurant',
+        image: r.photos 
+          ? `https://places.googleapis.com/v1/${r.photos[0].name}/media?maxHeightPx=800&maxWidthPx=800&key=${apiKey}`
+          : "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800",
+        rating: r.rating || 0,
+        distance: "Nearby", 
+        reviews: {
+          high: sortedReviews[0]?.text?.text || "Excellent food and service!",
+          mid: sortedReviews[Math.floor(sortedReviews.length / 2)]?.text?.text || "A solid choice for the area.",
+          low: sortedReviews[sortedReviews.length - 1]?.text?.text || "Service was a bit slow, but food was okay."
+        },
+        dishes: r.types?.slice(0, 3).map((t: string) => t.replace(/_/g, ' ')) || ["Local Favorite", "Top Rated"]
+      };
+    });
 
     return NextResponse.json(formatted);
   } catch (error) {
