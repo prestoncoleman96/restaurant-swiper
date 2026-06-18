@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { motion, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
+import { motion, useMotionValue, useTransform, AnimatePresence, PanInfo } from 'framer-motion';
 import { Star, Info } from 'lucide-react'; 
 import Image from 'next/image'; // Import Next.js Image component
 
@@ -25,8 +25,10 @@ export default function SwipeCard({ restaurant, onSwipe }: SwipeCardProps) {
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]); // Keep rotate for visual effect
   const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0, 1, 1, 1, 0]); // Keep opacity for visual effect
+  const yumOpacity = useTransform(x, [0, 100], [0, 1]);
+  const nahOpacity = useTransform(x, [0, -100], [0, 1]);
   
-  const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: { offset: { x: number } }) => {
+  const handleDragEnd = (_event: any, info: PanInfo) => {
     if (info.offset.x > 100) onSwipe('right');
     else if (info.offset.x < -100) onSwipe('left');
   };
@@ -39,7 +41,7 @@ export default function SwipeCard({ restaurant, onSwipe }: SwipeCardProps) {
           initial={{ opacity: 0, scale: 0.8, y: 50 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.8, y: -50 }}
-          style={{ x, rotate }} // Apply motion values for drag
+          style={{ x, rotate, opacity }} // Apply motion values for drag
           drag="x"
           dragConstraints={{ left: 0, right: 0 }}
           onDragEnd={handleDragEnd}
@@ -85,13 +87,13 @@ export default function SwipeCard({ restaurant, onSwipe }: SwipeCardProps) {
 
           {/* Visual Indicators */}
           <motion.div 
-            style={{ opacity: useTransform(x, [0, 100], [0, 1]) }}
+            style={{ opacity: yumOpacity }}
             className="absolute top-10 left-10 border-4 border-green-500 rounded-xl px-4 py-2 rotate-[-20deg] pointer-events-none"
           >
             <span className="text-green-500 text-4xl font-black uppercase tracking-tighter">YUM</span>
           </motion.div>
           <motion.div 
-            style={{ opacity: useTransform(x, [0, -100], [0, 1]) }}
+            style={{ opacity: nahOpacity }}
             className="absolute top-10 right-10 border-4 border-red-500 rounded-xl px-4 py-2 rotate-[20deg] pointer-events-none"
           >
             <span className="text-red-500 text-4xl font-black uppercase tracking-tighter">NAH</span>
