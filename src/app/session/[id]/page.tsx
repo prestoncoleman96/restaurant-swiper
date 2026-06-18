@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation"; // Keep useRouter, useSearchParams
 import { Utensils, Users, Share2, Play, CheckCircle2, Navigation, AlertTriangle, HelpCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -313,7 +313,7 @@ export default function SessionRoom() {
       if (view !== 'swiping') return;
       if (e.key === 'ArrowLeft') handleSwipe('left');
       if (e.key === 'ArrowRight') handleSwipe('right');
-      if (e.key === 'ArrowUp' && !hasUsedStar) handleSwipe('star');
+      if (e.key === 'ArrowUp' && !hasUsedStarRef.current) handleSwipe('star'); // Use the ref here
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -321,7 +321,7 @@ export default function SessionRoom() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [view, handleSwipe, hasUsedStar]);
+  }, [view, handleSwipe]); // hasUsedStar is no longer a direct dependency
 
   const handleJoin = async () => {
     if (!guestName.trim()) return;
