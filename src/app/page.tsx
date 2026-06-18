@@ -19,6 +19,22 @@ export default function Home() {
     
     setIsLoading(true);
 
+    // Runtime check for environment variables
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!url || url === 'undefined' || !anon || anon === 'undefined') {
+      alert(
+        "Missing Supabase Keys at Runtime!\n\n" +
+        "1. Go to Vercel Settings -> Environment Variables.\n" +
+        "2. Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set correctly.\n" +
+        "3. Check for leading/trailing spaces in the keys.\n" +
+        "3. YOU MUST REDEPLOY the app for these to take effect."
+      );
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const { data: session, error: sessionError } = await supabase
         .from('sessions')
