@@ -255,53 +255,57 @@ export default function SessionRoom() {
 
   // Define handleSwipe using useCallback
   const handleSwipe = useCallback(async (direction: 'left' | 'right' | 'star') => {
-    if (isSwiping || restaurants.length === 0 || !currentParticipantId) return; // Block if already swiping or no data
+    if (isSwiping || restaurants.length === 0 || !currentParticipantId) {
+      return; // Block if already swiping or no data
+    }
 
     setIsSwiping(true); // Set flag to block further swipes
 
-    const restaurant = restaurants[currentIndex];
-    
-    // Double-vote prevention
-    const { count } = await supabase
-      .from('votes')
-      .select('*', { count: 'exact', head: true })
-      .match({ participant_id: currentParticipantId, restaurant_id: restaurant.id });
+    try {
+      const restaurant = restaurants[currentIndex];
+      
+      // Double-vote prevention
+      const { count } = await supabase
+        .from('votes')
+        .select('*', { count: 'exact', head: true })
+        .match({ participant_id: currentParticipantId, restaurant_id: restaurant.id });
 
-    if (count && count > 0) return;
-    
-    // If already voted, release flag and return
-    if (count && count > 0) { setIsSwiping(false); return; }
-    
-    let voteType: Vote['vote_type'];
-    if (direction === 'star') {
-      voteType = 'star';
-      triggerHaptic(150);
-      setHasUsedStar(true);
-    } else if (sessionData?.session_type === 'discovery') {
-      voteType = direction === 'right' ? 'not_been_here' : 'been_here';
-    } else {
-      voteType = direction === 'right' ? 'like' : 'dislike';
-    }
-
-    if (currentParticipantId) {
-      await supabase.from('votes').insert([{
-        session_id: sessionId,
-        participant_id: currentParticipantId,
-        restaurant_id: restaurant.id,
-        vote_type: voteType
-      }]);
-    }
-
-    setCurrentIndex(prev => prev + 1);
-    setIsSwiping(false); // Release flag after swipe is processed
-    
-    if (currentIndex >= restaurants.length - 1) {
-      if (!sessionData?.is_async) {
-        calculateWinner();
+      if (count && count > 0) {
+        return; // Already voted, exit
       }
-      setView('waiting');
+      
+      let voteType: Vote['vote_type'];
+      if (direction === 'star') {
+        voteType = 'star';
+        triggerHaptic(150);
+        setHasUsedStar(true);
+      } else if (sessionData?.session_type === 'discovery') {
+        voteType = direction === 'right' ? 'not_been_here' : 'been_here';
+      } else {
+        voteType = direction === 'right' ? 'like' : 'dislike';
+      }
+
+      if (currentParticipantId) {
+        await supabase.from('votes').insert([{
+          session_id: sessionId,
+          participant_id: currentParticipantId,
+          restaurant_id: restaurant.id,
+          vote_type: voteType
+        }]);
+      }
+
+      setCurrentIndex(prev => prev + 1);
+      
+      if (currentIndex >= restaurants.length - 1) {
+        if (!sessionData?.is_async) {
+          calculateWinner();
+        }
+        setView('waiting');
+      }
+    } finally {
+      setIsSwiping(false); // Always release flag
     }
-  }, [restaurants, currentIndex, currentParticipantId, sessionData, sessionId, triggerHaptic, calculateWinner, isSwiping]);
+  }, [restaurants, currentIndex, currentParticipantId, sessionData, sessionId, triggerHaptic, calculateWinner]); // Removed isSwiping from dependencies
 
   // Separate useEffect for keyboard listener, depends on handleSwipe
   useEffect(() => {
