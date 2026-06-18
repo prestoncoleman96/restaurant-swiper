@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useState, useCallback } from "react"; // Removed useRouter, useSearchParams
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Utensils, Users, Share2, Play, CheckCircle2, Navigation, AlertTriangle, HelpCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import SwipeCard from "@/app/SwipeCard";
@@ -63,6 +63,7 @@ export default function SessionRoom() {
   const [hasUsedStar, setHasUsedStar] = useState(false);
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [potentialWinners, setPotentialWinners] = useState<Restaurant[]>([]);
+  const [isNewSessionFlag, setIsNewSessionFlag] = useState(false); // New state for new session
 
   const triggerHaptic = useCallback((pattern: number | number[]) => {
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -150,6 +151,15 @@ export default function SessionRoom() {
     }
     setWinner(win || null); // Fix: Added triggerHaptic to dependency array
   }, [sessionId, participants, sessionData, restaurants, triggerHaptic]);
+
+  useEffect(() => {
+    // Check for newSession query parameter and clean up URL
+    if (searchParams.get('newSession') === 'true') {
+      setIsNewSessionFlag(true);
+      // Replace the URL to remove the query parameter, preventing it from reappearing on refresh
+      router.replace(`/session/${sessionId}`, undefined, { shallow: true });
+    }
+  }, [searchParams, sessionId, router]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -484,6 +494,34 @@ export default function SessionRoom() {
       </header>
       <main className="flex-1 max-w-md mx-auto w-full space-y-8">
         <div className="text-center"><h1 className="text-4xl font-black uppercase italic mb-2 tracking-tighter">Waiting Room</h1><p className="text-white/60 font-medium">Invite your friends. When everyone is here, start the match!</p></div>
+
+        {isNewSessionFlag && ( // Conditionally render this section for new sessions
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="bg-[#FFB800]/20 border border-[#FFB800] rounded-3xl p-6 space-y-4 text-center"
+          >
+            <p className="font-black uppercase text-sm text-[#FFB800]">Session Created!</p>
+            <p className="text-white/80">Share this link with your friends:</p>
+            <div className="flex gap-2">
+              <div className="flex-1 bg-black/20 rounded-xl px-4 py-3 text-xs font-mono truncate text-white/60 border border-white/5">
+                {typeof window !== 'undefined' ? window.location.href : 'Loading...'}
+              </div>
+              <button 
+                onClick={copyLink}
+                className="bg-white text-[#FF4D00] px-4 rounded-xl font-bold text-xs uppercase hover:bg-[#FFB800] transition-colors"
+              >
+                {copied ? 'Saved!' : 'Copy'}
+              </button>
+            </div>
+            <button onClick={() => setIsNewSessionFlag(false)} className="text-white/80 text-xs underline">
+              Dismiss
+            </button>
+          </motion.div>
+        )}
+
         <div className="bg-white/10 rounded-3xl p-6 border border-white/20 min-h-[300px]">
           <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
             <div className="flex items-center gap-2">
