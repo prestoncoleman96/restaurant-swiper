@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, useMotionValue, useTransform, AnimatePresence, PanInfo } from 'framer-motion';
-import { Star, Info } from 'lucide-react'; 
+import { Star, Info, X, Heart } from 'lucide-react'; 
 import Image from 'next/image'; // Import Next.js Image component
 
 interface Restaurant {

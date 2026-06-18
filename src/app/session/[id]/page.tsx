@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { Utensils, Users, Share2, Play, CheckCircle2, X, Heart } from "lucide-react";
+import { Utensils, Users, Share2, Play, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import SwipeCard from "@/app/SwipeCard";
 import { AnimatePresence, motion } from "framer-motion";
@@ -143,7 +143,7 @@ export default function SessionRoom() {
       supabase.removeChannel(channel);
       supabase.removeChannel(sessionChannel);
     };
-  }, [sessionId, view, currentParticipantId]);
+  }, [sessionId, view, currentParticipantId, calculateWinner]);
 
   const handleJoin = async () => {
     if (!guestName.trim()) return;
@@ -218,7 +218,7 @@ export default function SessionRoom() {
     }
   };
 
-  const calculateWinner = async () => {
+  const calculateWinner = useCallback(async () => {
     const { data: allVotes } = await supabase
       .from('votes')
       .select('*')
@@ -257,7 +257,7 @@ export default function SessionRoom() {
 
     const win = restaurants.find(r => r.id === winningId);
     setWinner(win || null);
-  };
+  }, [sessionId, participants, sessionData, restaurants]);
 
   const copyLink = async () => {
     const url = window.location.href;
