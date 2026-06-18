@@ -246,44 +246,10 @@ export default function SessionRoom() {
       supabase.removeChannel(sessionChannel);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [sessionId, view, currentParticipantId, calculateWinner, hasUsedStar, sessionData]);
+  }, [sessionId, view, currentParticipantId, calculateWinner, hasUsedStar, sessionData]); // This useEffect is for initSession, not keyboard
 
-  const handleJoin = async () => {
-    if (!guestName.trim()) return;
-
-    const { data, error } = await supabase.from('participants').insert([
-      { session_id: sessionId, guest_name: guestName }
-    ]).select().single();
-
-    if (!error && data) {
-      localStorage.setItem(`munch_match_participant_${sessionId}`, data.id);
-      setCurrentParticipantId(data.id);
-      
-      // Check for star usage
-      const { data: starVote } = await supabase
-        .from('votes')
-        .select('*')
-        .match({ participant_id: data.id, vote_type: 'star' });
-      if (starVote && starVote.length > 0) setHasUsedStar(true);
-
-      setHasJoined(true);
-      // After joining, fetch restaurants and recover progress
-      if (sessionData && data) { // Ensure data is available from the insert
-        await fetchRestaurants(sessionData, data.id);
-      }
-    }
-  };
-
-  const handleStartSwiping = async () => {
-    await supabase.from('sessions').update({ is_active: true }).eq('id', sessionId);
-    setView('swiping');
-  };
-
-  const handleRevealResults = async () => {
-    await supabase.from('sessions').update({ results_revealed: true }).eq('id', sessionId);
-  };
-
-  const handleSwipe = async (direction: 'left' | 'right' | 'star') => {
+  // Define handleSwipe using useCallback
+  const handleSwipe = useCallback(async (direction: 'left' | 'right' | 'star') => {
     if (restaurants.length === 0 || !currentParticipantId) return;
 
     const restaurant = restaurants[currentIndex];
@@ -319,12 +285,62 @@ export default function SessionRoom() {
     setCurrentIndex(prev => prev + 1);
     
     if (currentIndex >= restaurants.length - 1) {
-      // If async, we just wait. If live, we wait for reveal.
       if (!sessionData?.is_async) {
-        calculateWinner(); // Local preview for host, or wait for reveal signal
+        calculateWinner();
       }
-      setView('waiting'); // Show waiting for others screen
+      setView('waiting');
     }
+  }, [restaurants, currentIndex, currentParticipantId, sessionData, hasUsedStar, sessionId, triggerHaptic, calculateWinner]);
+
+  // Separate useEffect for keyboard listener, depends on handleSwipe
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (view !== 'swiping') return;
+      if (e.key === 'ArrowLeft') handleSwipe('left');
+      if (e.key === 'ArrowRight') handleSwipe('right');
+      if (e.key === 'ArrowUp' && !hasUsedStar) handleSwipe('star');
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [view, handleSwipe, hasUsedStar]);
+
+  const handleJoin = async () => {
+    if (!guestName.trim()) return;
+
+    const { data, error } = await supabase.from('participants').insert([
+      { session_id: sessionId, guest_name: guestName }
+    ]).select().single();
+
+    if (!error && data) {
+      localStorage.setItem(`munch_match_participant_${sessionId}`, data.id);
+      setCurrentParticipantId(data.id);
+      
+      // Check for star usage
+      const { data: starVote } = await supabase
+        .from('votes')
+        .select('*')
+        .match({ participant_id: data.id, vote_type: 'star' });
+      if (starVote && starVote.length > 0) setHasUsedStar(true);
+
+      setHasJoined(true);
+      // After joining, fetch restaurants and recover progress
+      if (sessionData && data) { // Ensure data is available from the insert
+        await fetchRestaurants(sessionData, data.id);
+      }
+    }
+  };
+
+  const handleStartSwiping = async () => {
+    await supabase.from('sessions').update({ is_active: true }).eq('id', sessionId);
+    setView('swiping');
+  };
+
+  const handleRevealResults = async () => {
+    await supabase.from('sessions').update({ results_revealed: true }).eq('id', sessionId);
   };
 
   const copyLink = async () => {
