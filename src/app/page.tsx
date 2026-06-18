@@ -164,66 +164,6 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="space-y-3 text-left">
-            <label className="text-sm font-bold uppercase tracking-widest ml-1 text-white/80 flex items-center gap-2">
-              <Users className="w-4 h-4" /> Squad Rules
-            </label>
-            <div className="bg-white/5 rounded-2xl p-1 flex border border-white/10">
-              <button
-                onClick={() => setMatchLogic("unanimous")}
-                className={`flex-1 py-3 rounded-xl font-black uppercase text-[10px] tracking-tighter transition-all flex items-center justify-center gap-2 ${
-                  matchLogic === "unanimous" 
-                  ? "bg-white text-[#FF4D00] shadow-md" 
-                  : "text-white/60 hover:text-white"
-                }`}
-              >
-                {matchLogic === "unanimous" && <CheckCircle2 className="w-3 h-3" />} Unanimous
-              </button>
-              <button
-                onClick={() => setMatchLogic("majority")}
-                className={`flex-1 py-3 rounded-xl font-black uppercase text-[10px] tracking-tighter transition-all flex items-center justify-center gap-2 ${
-                  matchLogic === "majority" 
-                  ? "bg-white text-[#FF4D00] shadow-md" 
-                  : "text-white/60 hover:text-white"
-                }`}
-              >
-                {matchLogic === "majority" && <CheckCircle2 className="w-3 h-3" />} Majority
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={() => setIsAsync(!isAsync)}
-              className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                isAsync 
-                ? "border-[#FFB800] bg-[#FFB800]/20 text-white" 
-                : "border-white/10 bg-white/5 text-white/40"
-              }`}
-            >
-              {isAsync ? <Calendar className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-              <div className="text-left">
-                <p className="text-[10px] font-black uppercase leading-none">Timing</p>
-                <p className="text-[9px] font-bold">{isAsync ? "Async" : "Live"}</p>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setOpenNow(!openNow)}
-              className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                openNow 
-                ? "border-[#FFB800] bg-[#FFB800]/20 text-white" 
-                : "border-white/10 bg-white/5 text-white/40"
-              }`}
-            >
-              <Clock className="w-4 h-4" />
-              <div className="text-left">
-                <p className="text-[10px] font-black uppercase leading-none">Filter</p>
-                <p className="text-[9px] font-bold">{openNow ? "Open Now" : "Any Time"}</p>
-              </div>
-            </button>
-          </div>
-
           <div className="border-t border-white/10 pt-4">
             <button 
               onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
