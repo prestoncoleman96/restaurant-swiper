@@ -43,13 +43,12 @@ export default function Home() {
     } catch (error: unknown) {
       console.error("Session Creation Error:", error);
       
-      const message = error instanceof Error 
-        ? error.message 
-        : (error && typeof error === 'object' && 'message' in error)
-          ? String((error as { message: unknown }).message)
-          : "An unknown error occurred.";
+      // Extract as much info as possible from the Supabase error object
+      const err = error as { message?: string; details?: string; hint?: string };
+      const message = err.message || err.details || "An unknown error occurred.";
+      const hint = err.hint ? `\nHint: ${err.hint}` : "";
 
-      alert(`Database Error: ${message}\n\n1. Ensure your Supabase Env Vars are correct in Vercel.\n2. Ensure RLS is disabled in your Supabase SQL Editor.`);
+      alert(`Database Error: ${message}${hint}\n\n1. Ensure your Supabase Env Vars are correct in Vercel.\n2. Ensure RLS is disabled in your Supabase SQL Editor.`);
     } finally {
       setIsLoading(false);
     }
