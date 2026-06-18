@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from "react";
-import { motion } from "framer-motion"; // Import motion for advanced settings animation
+import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Utensils, Search, Heart, MapPin, Users, CheckCircle2, Clock, Calendar, ChevronDown, ChevronUp, DollarSign, Navigation2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -222,6 +222,84 @@ export default function Home() {
                 <p className="text-[9px] font-bold">{openNow ? "Open Now" : "Any Time"}</p>
               </div>
             </button>
+          </div>
+
+          <div className="border-t border-white/10 pt-4">
+            <button 
+              onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
+              className="flex items-center justify-between w-full px-2 text-xs font-black uppercase tracking-widest text-white/60 hover:text-white transition-colors"
+            >
+              Advanced Settings
+              {isAdvancedOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+
+            <AnimatePresence>
+              {isAdvancedOpen && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0 }} 
+                  animate={{ height: 'auto', opacity: 1 }} 
+                  exit={{ height: 0, opacity: 0 }}
+                  className="mt-6 space-y-6 overflow-hidden"
+                >
+                  <div className="space-y-3 text-left">
+                    <label className="text-xs font-bold uppercase tracking-widest ml-1 text-white/40 flex items-center gap-2">
+                      <Users className="w-3 h-3" /> Squad Logic
+                    </label>
+                    <div className="bg-white/5 rounded-2xl p-1 flex border border-white/10">
+                      {(['unanimous', 'majority'] as const).map((l) => (
+                        <button
+                          key={l}
+                          onClick={() => setMatchLogic(l)}
+                          className={`flex-1 py-2 rounded-xl font-black uppercase text-[9px] tracking-tighter transition-all ${matchLogic === l ? "bg-white text-[#FF4D00]" : "text-white/40"}`}
+                        >
+                          {l}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      onClick={() => setIsAsync(!isAsync)}
+                      className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${isAsync ? "border-[#FFB800] bg-[#FFB800]/20 text-white" : "border-white/10 bg-white/5 text-white/40"}`}
+                    >
+                      {isAsync ? <Calendar className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                      <div className="text-left">
+                        <p className="text-[10px] font-black uppercase leading-none">Timing</p>
+                        <p className="text-[9px] font-bold">{isAsync ? "Async" : "Live"}</p>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setOpenNow(!openNow)}
+                      className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${openNow ? "border-[#FFB800] bg-[#FFB800]/20 text-white" : "border-white/10 bg-white/5 text-white/40"}`}
+                    >
+                      <Clock className="w-4 h-4" />
+                      <div className="text-left">
+                        <p className="text-[10px] font-black uppercase leading-none">Open Now</p>
+                        <p className="text-[9px] font-bold">{openNow ? "Active" : "Ignore"}</p>
+                      </div>
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 text-left">
+                    <label className="text-xs font-bold uppercase tracking-widest ml-1 text-white/40 flex items-center gap-2">
+                      <DollarSign className="w-3 h-3" /> Price Range
+                    </label>
+                    <div className="flex gap-2">
+                      {[1, 2, 3, 4].map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => setPriceLevels(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])}
+                          className={`flex-1 py-3 rounded-xl font-black transition-all border ${priceLevels.includes(p) ? "bg-[#FFB800] border-[#FFB800] text-[#FF4D00]" : "bg-white/5 border-white/10 text-white/40"}`}
+                        >
+                          {"$".repeat(p)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           <button

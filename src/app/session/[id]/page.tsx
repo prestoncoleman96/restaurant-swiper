@@ -190,15 +190,6 @@ export default function SessionRoom() {
     
     initSession();
 
-    // Keyboard Listener
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (view !== 'swiping') return;
-      if (e.key === 'ArrowLeft') handleSwipe('left');
-      if (e.key === 'ArrowRight') handleSwipe('right');
-      if (e.key === 'ArrowUp' && !hasUsedStar) handleSwipe('star');
-    };
-    window.addEventListener('keydown', handleKeyDown);
-
     // Progress Syncing
     const syncProgress = async () => {
       const { data: votes } = await supabase.from('votes').select('participant_id').eq('session_id', sessionId);
@@ -290,7 +281,7 @@ export default function SessionRoom() {
       }
       setView('waiting');
     }
-  }, [restaurants, currentIndex, currentParticipantId, sessionData, hasUsedStar, sessionId, triggerHaptic, calculateWinner]);
+  }, [restaurants, currentIndex, currentParticipantId, sessionData, sessionId, triggerHaptic, calculateWinner]);
 
   // Separate useEffect for keyboard listener, depends on handleSwipe
   useEffect(() => {
@@ -306,7 +297,7 @@ export default function SessionRoom() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [view, handleSwipe]); // Removed hasUsedStar as it's not directly used in the effect's logic
+  }, [view, handleSwipe, hasUsedStar]);
 
   const handleJoin = async () => {
     if (!guestName.trim()) return;
