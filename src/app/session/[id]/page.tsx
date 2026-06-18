@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Utensils, Users, Share2, Play, CheckCircle2, X, Heart, Search } from "lucide-react";
+import { Utensils, Users, Share2, Play, CheckCircle2, X, Heart } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import SwipeCard from "@/app/SwipeCard";
 import { AnimatePresence, motion } from "framer-motion";
@@ -37,7 +37,6 @@ interface Restaurant {
   distance: string;
   reviews: { high: string; mid: string; low: string };
   dishes: string[];
-  summary?: string;
 }
 
 export default function SessionRoom() {
@@ -83,7 +82,6 @@ export default function SessionRoom() {
     const fetchRestaurants = async (zip: string) => {
       try {
         const res = await fetch(`/api/restaurants?zipCode=${zip}`);
-        if (!res.ok) throw new Error("API call failed");
         const data = await res.json();
         if (Array.isArray(data)) {
           setRestaurants(data);
@@ -146,8 +144,6 @@ export default function SessionRoom() {
   };
 
   const handleSwipe = async (direction: 'left' | 'right') => {
-    if (restaurants.length === 0) return;
-
     const restaurant = restaurants[currentIndex];
     
     let voteType: Vote['vote_type'];
@@ -166,13 +162,11 @@ export default function SessionRoom() {
       }]);
     }
 
-    const nextIndex = currentIndex + 1;
+    setCurrentIndex(prev => prev + 1);
     
-    if (nextIndex >= restaurants.length) {
+    if (currentIndex >= restaurants.length - 1) {
       setView('finished');
       calculateWinner();
-    } else {
-      setCurrentIndex(nextIndex);
     }
   };
 
@@ -203,7 +197,7 @@ export default function SessionRoom() {
       ? [...matches].sort((a, b) => counts[b] - counts[a])[0] 
       : null;
 
-    const win = winningId ? restaurants.find(r => r.id === winningId) : null;
+    const win = restaurants.find(r => r.id === winningId);
     setWinner(win || null);
   };
 
@@ -251,24 +245,14 @@ export default function SessionRoom() {
     return (
       <div className="flex flex-col min-h-screen bg-[#FF4D00] text-white items-center justify-center p-6 text-center">
         <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-sm space-y-8 bg-white/10 p-10 rounded-[3rem] backdrop-blur-md border border-white/20">
-          {winner ? (
-            <>
-              <div className="bg-[#FFB800] w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-2xl">
-                <Utensils className="w-10 h-10 text-[#FF4D00]" />
-              </div>
-              <h1 className="text-4xl font-black uppercase italic tracking-tighter">It&apos;s a Match!</h1>
-              <div className="space-y-2">
-                <p className="text-white/60 font-bold uppercase tracking-widest text-xs">You should head to:</p>
-                <h2 className="text-5xl font-black uppercase italic text-[#FFB800] leading-none">{winner.name}</h2>
-              </div>
-            </>
-          ) : (
-            <>
-              <X className="w-20 h-20 text-white/40 mx-auto" />
-              <h1 className="text-4xl font-black uppercase italic tracking-tighter">No Match Found</h1>
-              <p className="text-white/60 font-bold uppercase tracking-tighter">The squad couldn&apos;t agree on anything!</p>
-            </>
-          )}
+          <div className="bg-[#FFB800] w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-2xl">
+            <Utensils className="w-10 h-10 text-[#FF4D00]" />
+          </div>
+          <h1 className="text-4xl font-black uppercase italic tracking-tighter">It&apos;s a Match!</h1>
+          <div className="space-y-2">
+            <p className="text-white/60 font-bold uppercase tracking-widest text-xs">You should head to:</p>
+            <h2 className="text-5xl font-black uppercase italic text-[#FFB800] leading-none">{winner?.name || "Loading..."}</h2>
+          </div>
           <button onClick={() => typeof window !== 'undefined' && window.location.reload()} className="w-full bg-white text-[#FF4D00] py-4 rounded-2xl font-black text-xl uppercase tracking-tighter">Try Again</button>
         </motion.div>
       </div>
@@ -282,30 +266,13 @@ export default function SessionRoom() {
           <div className="flex items-center gap-2"><div className="bg-white p-2 rounded-full"><Utensils className="w-4 h-4 text-[#FF4D00]" /></div><span className="font-black italic uppercase tracking-tighter text-white">Matching...</span></div>
           <div className="bg-white/20 px-4 py-1 rounded-full text-xs font-bold text-white uppercase tracking-widest">{currentIndex + 1} / {restaurants.length}</div>
         </header>
-        <div className="flex-1 relative flex items-center justify-center p-4">
-          {restaurants.length > 0 ? (
-            <AnimatePresence mode="wait">
-              <SwipeCard 
-                key={restaurants[currentIndex].id} 
-                restaurant={restaurants[currentIndex]} 
-                onSwipe={handleSwipe} 
-              />
-            </AnimatePresence>
-          ) : (
-            <div className="text-center bg-white/10 backdrop-blur-md p-10 rounded-[2.5rem] border border-white/20 max-w-xs">
-              <Search className="w-12 h-12 text-white/40 mx-auto mb-4" />
-              <h3 className="text-xl font-black italic uppercase mb-2">No Places Found</h3>
-              <p className="text-white/60 text-sm">We couldn&apos;t find any restaurants in ZIP code {sessionData?.zip_code}.</p>
-              <button onClick={() => window.location.href = '/'} className="mt-6 text-[#FFB800] font-black uppercase text-xs tracking-widest hover:underline">Try Another ZIP</button>
-            </div>
-          )}
+        <div className="flex-1 relative flex items-center justify-center">
+          <AnimatePresence>{restaurants.slice(currentIndex, currentIndex + 1).map((restaurant) => (<SwipeCard key={restaurant.id} restaurant={restaurant} onSwipe={handleSwipe} />))}</AnimatePresence>
         </div>
-        {restaurants.length > 0 && (
-          <div className="p-10 flex justify-center items-center gap-8 z-10">
-            <button onClick={() => handleSwipe('left')} className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-xl text-red-500 hover:scale-110 transition-transform active:scale-90"><X className="w-8 h-8 stroke-[3]" /></button>
-            <button onClick={() => handleSwipe('right')} className="w-20 h-20 bg-[#FFB800] rounded-full flex items-center justify-center shadow-xl text-[#FF4D00] hover:scale-110 transition-transform active:scale-90 border-4 border-white"><Heart className="w-10 h-10 fill-current" /></button>
-          </div>
-        )}
+        <div className="p-10 flex justify-center items-center gap-8 z-10">
+          <button onClick={() => handleSwipe('left')} className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-xl text-red-500 hover:scale-110 transition-transform active:scale-90"><X className="w-8 h-8 stroke-[3]" /></button>
+          <button onClick={() => handleSwipe('right')} className="w-20 h-20 bg-[#FFB800] rounded-full flex items-center justify-center shadow-xl text-[#FF4D00] hover:scale-110 transition-transform active:scale-90 border-4 border-white"><Heart className="w-10 h-10 fill-current" /></button>
+        </div>
       </div>
     );
   }
@@ -329,7 +296,7 @@ export default function SessionRoom() {
             ))}
           </ul>
         </div>
-        <button onClick={handleStartSwiping} className="w-full bg-[#FFB800] text-[#FF4D00] py-6 rounded-3xl font-black text-2xl uppercase tracking-tighter shadow-2xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3 active:scale-95"><Play className="w-8 h-8 fill-current" />Start Swiping</button>
+        <button onClick={handleStartSwiping} disabled={participants.length === 0} className="w-full bg-[#FFB800] text-[#FF4D00] py-6 rounded-3xl font-black text-2xl uppercase tracking-tighter shadow-2xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"><Play className="w-8 h-8 fill-current" />Start Swiping</button>
       </main>
     </div>
   );

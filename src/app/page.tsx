@@ -8,13 +8,14 @@ import { supabase } from "@/lib/supabase";
 export default function Home() {
   const router = useRouter();
   const [zipCode, setZipCode] = useState("");
+  const [hostName, setHostName] = useState("");
   const [mode, setMode] = useState<"discovery" | "preference" | null>(null);
   const [matchLogic, setMatchLogic] = useState<"unanimous" | "majority">("unanimous");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCreateSession = async () => {
-    if (!zipCode || zipCode.length < 5) {
-      alert("Please enter a valid ZIP code first!");
+    if (!zipCode || zipCode.length < 5 || !hostName.trim()) {
+      alert("Please enter a ZIP code and your name!");
       return;
     }
     
@@ -51,7 +52,7 @@ export default function Home() {
 
       const { error: participantError } = await supabase.from('participants').insert([{
         session_id: session.id,
-        guest_name: 'Host'
+        guest_name: hostName
       }]);
 
       if (participantError) throw participantError;
@@ -85,6 +86,17 @@ export default function Home() {
         </div>
 
         <div className="w-full max-w-sm space-y-8 bg-white/10 p-8 rounded-3xl backdrop-blur-md border border-white/20">
+          <div className="space-y-2 text-left">
+            <label className="text-sm font-bold uppercase tracking-widest ml-1 text-white/80">Your Name</label>
+            <input
+              type="text"
+              placeholder="e.g. Big Hungry"
+              value={hostName}
+              onChange={(e) => setHostName(e.target.value)}
+              className="w-full bg-white text-black py-4 px-6 rounded-2xl font-bold text-lg focus:ring-4 focus:ring-[#FFB800] outline-none transition-all"
+            />
+          </div>
+
           <div className="space-y-2 text-left">
             <label className="text-sm font-bold uppercase tracking-widest ml-1 text-white/80">Where are we eating?</label>
             <div className="relative">

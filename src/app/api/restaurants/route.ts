@@ -72,11 +72,38 @@ export async function GET(request: Request) {
     const formatted = data.places.slice(0, 20).map((r: GooglePlace) => {
       const sortedReviews = r.reviews?.sort((a, b) => (b.rating || 0) - (a.rating || 0)) || [];
       
+      // Logic to extract specific dishes mentioned in praise
+      const extractDishes = () => {
+        const highRatedReviews = sortedReviews
+          .filter(rev => rev.rating >= 4)
+          .map(rev => rev.text.text.toLowerCase())
+          .join(' ');
+
+        // Regex to find items mentioned after "praise" or "action" words
+        // Looks for things like "best [dish]", "delicious [dish]", "ordered the [dish]"
+        const dishRegex = /(?:best|amazing|delicious|favorite|must try|try the|ordered the|love the|incredible) ([a-z\s]{3,20})(?=\s(?:is|was|were|are|!|\.|\,))/gi;
+        
+        const matches = Array.from(highRatedReviews.matchAll(dishRegex), m => m[1].trim());
+        
+        // Filter out common "noise" words that aren't dishes
+        const noise = ['place', 'service', 'food', 'experience', 'atmosphere', 'staff', 'everything', 'time', 'menu', 'restaurant'];
+        const uniqueDishes = [...new Set(matches)]
+          .filter(d => !noise.some(n => d.includes(n)))
+          .map(d => d.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '));
+
+        return uniqueDishes.slice(0, 3);
+      };
+
+      const reviewDishes = extractDishes();
+      
       // Filter out generic Google types and clean up the names
       const genericTypes = ['restaurant', 'food', 'point_of_interest', 'establishment', 'meal_takeaway', 'meal_delivery'];
       const specificTypes = r.types
         ?.filter(t => !genericTypes.includes(t))
         .map((t: string) => t.replace(/_restaurant$/g, '').replace(/_/g, ' ')) || [];
+
+      // Use review-extracted dishes if found, otherwise fall back to cleaned types
+      const finalDishes = reviewDishes.length > 0 ? reviewDishes : (specificTypes.length > 0 ? specificTypes.slice(0, 3) : ["Local Favorite", "Top Rated"]);
 
       return {
         id: r.id,
@@ -91,7 +118,7 @@ export async function GET(request: Request) {
           mid: sortedReviews[Math.floor(sortedReviews.length / 2)]?.text?.text || "A solid choice for the area.",
           low: sortedReviews[sortedReviews.length - 1]?.text?.text || "Service was a bit slow, but food was okay."
         },
-        dishes: specificTypes.length > 0 ? specificTypes.slice(0, 3) : ["Local Favorite", "Top Rated"],
+        dishes: finalDishes,
         summary: r.editorialSummary?.text
       };
     });
