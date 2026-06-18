@@ -13,6 +13,7 @@ interface Restaurant {
   distance: string;
   reviews: { high: string; mid: string; low: string };
   dishes: string[];
+  summary?: string;
 }
 
 interface SwipeCardProps {

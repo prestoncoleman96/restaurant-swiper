@@ -20,6 +20,7 @@ interface GooglePlace {
   rating?: number;
   photos?: GooglePlacePhoto[];
   reviews?: GooglePlaceReview[];
+  editorialSummary?: { text: string };
   types?: string[];
 }
 
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': apiKey || '',
-        'X-Goog-FieldMask': 'places.id,places.displayName,places.rating,places.photos,places.reviews,places.types'
+        'X-Goog-FieldMask': 'places.id,places.displayName,places.rating,places.photos,places.reviews,places.types,places.editorialSummary'
       },
       body: JSON.stringify({
         textQuery: `restaurants in ${zipCode}`
@@ -70,6 +71,13 @@ export async function GET(request: Request) {
 
     const formatted = data.places.slice(0, 20).map((r: GooglePlace) => {
       const sortedReviews = r.reviews?.sort((a, b) => (b.rating || 0) - (a.rating || 0)) || [];
+      
+      // Filter out generic Google types and clean up the names
+      const genericTypes = ['restaurant', 'food', 'point_of_interest', 'establishment', 'meal_takeaway', 'meal_delivery'];
+      const specificTypes = r.types
+        ?.filter(t => !genericTypes.includes(t))
+        .map((t: string) => t.replace(/_restaurant$/g, '').replace(/_/g, ' ')) || [];
+
       return {
         id: r.id,
         name: r.displayName?.text || 'Unknown Restaurant',
@@ -83,7 +91,8 @@ export async function GET(request: Request) {
           mid: sortedReviews[Math.floor(sortedReviews.length / 2)]?.text?.text || "A solid choice for the area.",
           low: sortedReviews[sortedReviews.length - 1]?.text?.text || "Service was a bit slow, but food was okay."
         },
-        dishes: r.types?.slice(0, 3).map((t: string) => t.replace(/_/g, ' ')) || ["Local Favorite", "Top Rated"]
+        dishes: specificTypes.length > 0 ? specificTypes.slice(0, 3) : ["Local Favorite", "Top Rated"],
+        summary: r.editorialSummary?.text
       };
     });
 

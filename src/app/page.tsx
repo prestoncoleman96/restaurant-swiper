@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Utensils, Search, Heart, MapPin } from "lucide-react";
+import { Utensils, Search, Heart, MapPin, Users, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function Home() {
   const router = useRouter();
   const [zipCode, setZipCode] = useState("");
   const [mode, setMode] = useState<"discovery" | "preference" | null>(null);
+  const [matchLogic, setMatchLogic] = useState<"unanimous" | "majority">("unanimous");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCreateSession = async () => {
@@ -41,7 +42,7 @@ export default function Home() {
         .insert([{ 
           zip_code: zipCode, 
           session_type: mode,
-          // match_logic defaults to 'unanimous' in the DB schema
+          match_logic: matchLogic
         }])
         .select()
         .single();
@@ -123,6 +124,34 @@ export default function Home() {
               <Heart className="w-8 h-8 mb-2" />
               <span className="font-black uppercase text-[10px]">Pick a Place</span>
             </button>
+          </div>
+
+          <div className="space-y-3 text-left">
+            <label className="text-sm font-bold uppercase tracking-widest ml-1 text-white/80 flex items-center gap-2">
+              <Users className="w-4 h-4" /> Squad Rules
+            </label>
+            <div className="bg-white/5 rounded-2xl p-1 flex border border-white/10">
+              <button
+                onClick={() => setMatchLogic("unanimous")}
+                className={`flex-1 py-3 rounded-xl font-black uppercase text-[10px] tracking-tighter transition-all flex items-center justify-center gap-2 ${
+                  matchLogic === "unanimous" 
+                  ? "bg-white text-[#FF4D00] shadow-md" 
+                  : "text-white/60 hover:text-white"
+                }`}
+              >
+                {matchLogic === "unanimous" && <CheckCircle2 className="w-3 h-3" />} Unanimous
+              </button>
+              <button
+                onClick={() => setMatchLogic("majority")}
+                className={`flex-1 py-3 rounded-xl font-black uppercase text-[10px] tracking-tighter transition-all flex items-center justify-center gap-2 ${
+                  matchLogic === "majority" 
+                  ? "bg-white text-[#FF4D00] shadow-md" 
+                  : "text-white/60 hover:text-white"
+                }`}
+              >
+                {matchLogic === "majority" && <CheckCircle2 className="w-3 h-3" />} Majority
+              </button>
+            </div>
           </div>
 
           <button
