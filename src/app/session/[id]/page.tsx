@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react"; // Removed useMemo
 import { useParams } from "next/navigation";
 import { Utensils, Users, Share2, Play, CheckCircle2, Navigation, AlertTriangle, HelpCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
