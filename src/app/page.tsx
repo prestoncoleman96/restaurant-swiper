@@ -45,7 +45,9 @@ export default function Home() {
       
       const message = error instanceof Error 
         ? error.message 
-        : (error as any)?.message || "An unknown error occurred.";
+        : (error && typeof error === 'object' && 'message' in error)
+          ? String((error as { message: unknown }).message)
+          : "An unknown error occurred.";
 
       alert(`Database Error: ${message}\n\n1. Ensure your Supabase Env Vars are correct in Vercel.\n2. Ensure RLS is disabled in your Supabase SQL Editor.`);
     } finally {
