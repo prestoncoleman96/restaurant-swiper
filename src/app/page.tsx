@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { Utensils, Search, Heart, MapPin, Users, CheckCircle2, Clock, Calendar, ChevronDown, ChevronUp, DollarSign, Navigation2 } from "lucide-react";
+import { Utensils, Search, Heart, MapPin, Users, Clock, Calendar, ChevronDown, ChevronUp, DollarSign, Navigation2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function Home() {

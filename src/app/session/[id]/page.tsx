@@ -95,7 +95,7 @@ export default function SessionRoom() {
     } finally {
       setIsLoadingRestaurants(false);
     }
-  }, [setRestaurants, setCurrentIndex, setIsLoadingRestaurants, sessionId, supabase]); // Reordered for clarity, sessionId and supabase are stable
+  }, [setRestaurants, setCurrentIndex, setIsLoadingRestaurants]); // sessionId and supabase are stable and don't need to be in deps
 
   const calculateWinner = useCallback(async () => {
     const { data: allVotes } = await supabase
