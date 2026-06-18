@@ -159,9 +159,9 @@ export default function SessionRoom() {
     if (searchParams.get('newSession') === 'true') {
       setIsNewSessionFlag(true);
       // Replace the URL to remove the query parameter, preventing it from reappearing on refresh
-      router.replace(`/session/${sessionId}`, undefined, { shallow: true });
-    } // router and searchParams are stable references, no need to include in deps
-  }, [sessionId]); // Only sessionId is a dependency that might change and affect this effect
+      router.replace(`/session/${sessionId}`);
+    }
+  }, [searchParams, sessionId, router]);
 
   useEffect(() => {
     if (!sessionId) return;
