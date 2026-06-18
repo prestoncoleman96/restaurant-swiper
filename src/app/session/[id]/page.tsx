@@ -95,7 +95,7 @@ export default function SessionRoom() {
     } finally {
       setIsLoadingRestaurants(false);
     }
-  }, [sessionId, supabase]); // Add sessionId and supabase to dependencies
+  }, [sessionId, supabase, setRestaurants, setCurrentIndex, setIsLoadingRestaurants]); // Removed sessionId and supabase as they are stable
 
   const calculateWinner = useCallback(async () => {
     const { data: allVotes } = await supabase
@@ -238,7 +238,7 @@ export default function SessionRoom() {
       supabase.removeChannel(channel);
       supabase.removeChannel(sessionChannel);
     };
-  }, [sessionId, view, currentParticipantId, calculateWinner, hasUsedStar, sessionData]); // This useEffect is for initSession, not keyboard
+  }, [sessionId, view, currentParticipantId, calculateWinner, hasUsedStar, sessionData, fetchRestaurants]);
 
   // Define handleSwipe using useCallback
   const handleSwipe = useCallback(async (direction: 'left' | 'right' | 'star') => {
@@ -403,13 +403,13 @@ export default function SessionRoom() {
           <div className="bg-[#FFB800] w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-2xl">
             <Utensils className="w-10 h-10 text-[#FF4D00]" />
           </div>
-          <h1 className="text-4xl font-black uppercase italic tracking-tighter">It&apos;s a Match!</h1>
+          <h1 className="text-4xl font-black uppercase italic tracking-tighter">It&apos;s a Match!</h1> {/* Ensure winner is not null here */}
           <div className="space-y-2">
             <p className="text-white/60 font-bold uppercase tracking-widest text-xs">You should head to:</p>
-            <h2 className="text-5xl font-black uppercase italic text-[#FFB800] leading-none">{winner.name}</h2>
+            <h2 className="text-5xl font-black uppercase italic text-[#FFB800] leading-none">{winner?.name}</h2>
           </div>
           <button 
-            onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(winner.name)}&query_place_id=${winner.id}`, '_blank')}
+            onClick={() => winner && window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(winner.name)}&query_place_id=${winner.id}`, '_blank')}
             className="w-full bg-[#FFB800] text-[#FF4D00] py-4 rounded-2xl font-black text-xl uppercase flex items-center justify-center gap-2"
           >
             <Navigation className="w-6 h-6" /> Get Directions
