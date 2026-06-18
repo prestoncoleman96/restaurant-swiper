@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from "react"; // Removed useMemo
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { Utensils, Users, Share2, Play, CheckCircle2, Navigation, AlertTriangle, HelpCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -202,7 +202,7 @@ export default function SessionRoom() {
     // Progress Syncing
     const syncProgress = async () => {
       const { data: votes } = await supabase.from('votes').select('participant_id').eq('session_id', sessionId);
-      const counts: any = {};
+      const counts: Record<string, number> = {};
       votes?.forEach(v => counts[v.participant_id] = (counts[v.participant_id] || 0) + 1);
       setProgress(counts);
     };
