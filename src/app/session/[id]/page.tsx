@@ -332,7 +332,7 @@ export default function SessionRoom() {
 
       setHasJoined(true);
       // After joining, fetch restaurants and recover progress
-      if (sessionData && data) { // Ensure data is available from the insert
+      if (sessionData) { // data is guaranteed if !error
         await fetchRestaurants(sessionData, data.id);
       }
     }

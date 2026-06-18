@@ -32,12 +32,15 @@ export default function Home() {
     const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!url || url === 'undefined' || !anon || anon === 'undefined') {
+      const devMessage = "Missing Supabase Keys at Runtime!\n\n" +
+                         "1. Go to Vercel Settings -> Environment Variables.\n" +
+                         "2. Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set correctly.\n" +
+                         "3. Check for leading/trailing spaces in the keys.\n" +
+                         "4. YOU MUST REDEPLOY the app for these to take effect.";
+      const prodMessage = "An internal configuration error occurred. Please try again later or contact support.";
+
       alert(
-        "Missing Supabase Keys at Runtime!\n\n" +
-        "1. Go to Vercel Settings -> Environment Variables.\n" +
-        "2. Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set correctly.\n" +
-        "3. Check for leading/trailing spaces in the keys.\n" +
-        "3. YOU MUST REDEPLOY the app for these to take effect."
+        process.env.NODE_ENV === 'development' ? devMessage : prodMessage
       );
       setIsLoading(false);
       return;
