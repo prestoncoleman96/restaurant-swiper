@@ -191,3 +191,90 @@ function Review({ snippet, label, color }: { snippet: string, label: string, col
     </div>
   );
 }
+// Assuming this is your existing SwipeCard component structure
+import React from 'react';
+import { motion } from 'framer-motion';
+import { Star, MapPin } from 'lucide-react';
+
+interface Restaurant {
+  id: string;
+  name: string;
+  image: string;
+  rating: number;
+  distance: string;
+}
+
+interface SwipeCardProps {
+  restaurant: Restaurant;
+  onSwipe: (direction: 'left' | 'right' | 'star') => void;
+  hasUsedStar: boolean;
+  onImageClick: (imageUrl: string) => void; // Add onImageClick prop
+}
+
+const SwipeCard: React.FC<SwipeCardProps> = ({ restaurant, onSwipe, hasUsedStar, onImageClick }) => {
+  return (
+    <motion.div
+      className="absolute w-[90%] max-w-sm h-[70vh] bg-white rounded-3xl shadow-xl flex flex-col overflow-hidden cursor-grab"
+      drag="x"
+      dragConstraints={{ left: 0, right: 0 }}
+      onDragEnd={(event, info) => {
+        if (info.offset.x > 100) {
+          onSwipe('right');
+        } else if (info.offset.x < -100) {
+          onSwipe('left');
+        }
+      }}
+      initial={{ scale: 0.9, opacity: 0.5 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0.9, opacity: 0.5 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+    >
+      <div className="relative flex-1 bg-gray-200">
+        <img
+          src={restaurant.image}
+          alt={restaurant.name}
+          className="w-full h-full object-cover cursor-pointer"
+          onClick={() => onImageClick(restaurant.image)} // Make image clickable
+        />
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-white">
+          <h2 className="text-3xl font-black">{restaurant.name}</h2>
+          <p className="flex items-center text-sm mt-1">
+            {restaurant.rating} ★ &bull; <MapPin className="w-3 h-3 mr-1" /> {restaurant.distance}
+          </p>
+        </div>
+      </div>
+
+      <div className="p-4 bg-white flex justify-around items-center">
+        <button
+          onClick={() => onSwipe('left')}
+          className="bg-red-500 text-white p-4 rounded-full shadow-lg hover:scale-110 transition-transform"
+        >
+          {/* Dislike Icon */}
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <button
+          onClick={() => onSwipe('star')}
+          disabled={hasUsedStar}
+          className={`p-4 rounded-full shadow-lg transition-transform ${
+            hasUsedStar ? 'bg-gray-300 text-gray-500' : 'bg-yellow-400 text-white hover:scale-110'
+          }`}
+        >
+          <Star className="w-8 h-8" fill="currentColor" />
+        </button>
+        <button
+          onClick={() => onSwipe('right')}
+          className="bg-green-500 text-white p-4 rounded-full shadow-lg hover:scale-110 transition-transform"
+        >
+          {/* Like Icon */}
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+          </svg>
+        </button>
+      </div>
+    </motion.div>
+  );
+};
+
+export default SwipeCard;
