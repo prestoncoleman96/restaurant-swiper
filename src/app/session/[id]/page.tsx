@@ -70,6 +70,33 @@ export default function SessionRoom() {
     }
   }, []);
 
+  const fetchRestaurants = useCallback(async (session: Session, participantIdForRecovery: string | null) => {
+    try {
+      const res = await fetch(`/api/restaurants?zipCode=${session.zip_code}&openNow=${session.open_now}&radius=${session.radius}&priceLevels=${session.price_levels?.join(',') || ''}`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        console.log("Setting restaurants:", data.length); // Added for debugging
+        setRestaurants(data);
+        
+        // Recover progress if user has already joined
+        if (participantIdForRecovery && data.length > 0) { // Only recover if there are restaurants
+          const { count } = await supabase
+            .from('votes')
+            .select('*', { count: 'exact', head: true })
+            .match({ participant_id: participantIdForRecovery, session_id: session.id });
+          if (count) {
+            console.log("Recovered progress, setting currentIndex to:", count); // Added for debugging
+            setCurrentIndex(count);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load restaurants", err);
+    } finally {
+      setIsLoadingRestaurants(false);
+    }
+  }, [sessionId, supabase]); // Add sessionId and supabase to dependencies
+
   const calculateWinner = useCallback(async () => {
     const { data: allVotes } = await supabase
       .from('votes')
@@ -156,33 +183,6 @@ export default function SessionRoom() {
         setHasJoined(true);
         // If a savedId exists, fetch restaurants and recover progress using that ID
         if (session) await fetchRestaurants(session, savedId); 
-      }
-    };
-
-    const fetchRestaurants = async (session: Session, participantIdForRecovery: string | null) => {
-      try {
-        const res = await fetch(`/api/restaurants?zipCode=${session.zip_code}&openNow=${session.open_now}&radius=${session.radius}&priceLevels=${session.price_levels?.join(',') || ''}`);
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          console.log("Setting restaurants:", data.length); // Added for debugging
-          setRestaurants(data);
-          
-          // Recover progress if user has already joined
-          if (participantIdForRecovery && data.length > 0) { // Only recover if there are restaurants
-            const { count } = await supabase
-              .from('votes')
-              .select('*', { count: 'exact', head: true })
-              .match({ participant_id: participantIdForRecovery, session_id: sessionId });
-            if (count) {
-              console.log("Recovered progress, setting currentIndex to:", count); // Added for debugging
-              setCurrentIndex(count);
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load restaurants", err);
-      } finally {
-        setIsLoadingRestaurants(false);
       }
     };
     
