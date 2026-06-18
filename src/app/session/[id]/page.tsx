@@ -16,6 +16,8 @@ interface Session {
   is_active: boolean;
   is_async: boolean;
   open_now: boolean;
+  radius: number; // Add radius to Session interface
+  price_levels: number[]; // Add price_levels to Session interface
   results_revealed: boolean;
 }
 
@@ -119,8 +121,8 @@ export default function SessionRoom() {
         colors: ['#FF4D00', '#FFB800', '#ffffff']
       });
     }
-    setWinner(win || null);
-  }, [sessionId, participants, sessionData, restaurants]);
+    setWinner(win || null); // Fix: Added triggerHaptic to dependency array
+  }, [sessionId, participants, sessionData, restaurants, triggerHaptic]);
 
   useEffect(() => {
     if (!sessionId) return;
