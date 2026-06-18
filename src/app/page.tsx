@@ -55,6 +55,7 @@ export default function Home() {
 
       if (participantError) throw participantError;
 
+      console.log("Redirecting to session:", session.id);
       router.push(`/session/${session.id}`);
     } catch (error: unknown) {
       console.error("Session Creation Error:", error);
