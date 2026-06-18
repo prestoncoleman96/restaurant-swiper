@@ -237,7 +237,6 @@ export default function SessionRoom() {
     return () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(sessionChannel);
-      window.removeEventListener('keydown', handleKeyDown);
     };
   }, [sessionId, view, currentParticipantId, calculateWinner, hasUsedStar, sessionData]); // This useEffect is for initSession, not keyboard
 
