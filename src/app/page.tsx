@@ -25,7 +25,7 @@ export default function Home() {
         .insert([{ 
           zip_code: zipCode, 
           session_type: mode,
-          match_logic: 'unanimous' 
+          // match_logic defaults to 'unanimous' in the DB schema
         }])
         .select()
         .single();
@@ -40,9 +40,10 @@ export default function Home() {
       if (participantError) throw participantError;
 
       router.push(`/session/${session.id}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error creating session:", error);
-      alert(`Error: ${error.message || "Make sure your Supabase tables are set up!"}`);
+      const message = error instanceof Error ? error.message : "An unknown error occurred. Make sure your Supabase tables are set up!";
+      alert(`Error: ${message}`);
     } finally {
       setIsLoading(false);
     }

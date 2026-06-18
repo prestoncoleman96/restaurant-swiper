@@ -7,20 +7,53 @@ import { supabase } from "@/lib/supabase";
 import SwipeCard from "@/app/SwipeCard";
 import { AnimatePresence, motion } from "framer-motion";
 
+interface Session {
+  id: string;
+  zip_code: string;
+  session_type: 'discovery' | 'preference';
+  match_logic: 'unanimous' | 'majority';
+  is_active: boolean;
+}
+
+interface Participant {
+  id: string;
+  session_id: string;
+  guest_name: string;
+}
+
+interface Vote {
+  id: string;
+  session_id: string;
+  participant_id: string;
+  restaurant_id: string;
+  vote_type: 'like' | 'dislike' | 'not_been_here' | 'been_here';
+}
+
+interface Restaurant {
+  id: string;
+  name: string;
+  image: string;
+  rating: number;
+  distance: string;
+  reviews: { high: string; mid: string; low: string };
+  dishes: string[];
+}
+
 export default function SessionRoom() {
   const params = useParams();
   const sessionId = params?.id as string;
 
-  const [participants, setParticipants] = useState<any[]>([]);
+  const [participants, setParticipants] = useState<Participant[]>([]);
   const [currentParticipantId, setCurrentParticipantId] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
   const [hasJoined, setHasJoined] = useState(false);
   const [copied, setCopied] = useState(false);
   const [view, setView] = useState<'waiting' | 'swiping' | 'finished'>('waiting');
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [restaurants, setRestaurants] = useState<any[]>(MOCK_RESTAURANTS);
-  const [sessionData, setSessionData] = useState<any>(null);
-  const [winner, setWinner] = useState<any>(null);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [isLoadingRestaurants, setIsLoadingRestaurants] = useState(true);
+  const [sessionData, setSessionData] = useState<Session | null>(null);
+  const [winner, setWinner] = useState<Restaurant | null>(null);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -34,6 +67,7 @@ export default function SessionRoom() {
       
       if (session) {
         setSessionData(session);
+        fetchRestaurants(session.zip_code);
         if (session.is_active) setView('swiping');
       }
 
@@ -45,6 +79,20 @@ export default function SessionRoom() {
       if (data) setParticipants(data);
     };
 
+    const fetchRestaurants = async (zip: string) => {
+      try {
+        const res = await fetch(`/api/restaurants?zipCode=${zip}`);
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setRestaurants(data);
+        }
+      } catch (err) {
+        console.error("Failed to load restaurants", err);
+      } finally {
+        setIsLoadingRestaurants(false);
+      }
+    };
+
     initSession();
 
     const channel = supabase
@@ -53,7 +101,7 @@ export default function SessionRoom() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'participants', filter: `session_id=eq.${sessionId}` },
         (payload) => {
-          setParticipants((current) => [...current, payload.new]);
+          setParticipants((current) => [...current, payload.new as Participant]);
         }
       )
       .subscribe();
@@ -98,7 +146,7 @@ export default function SessionRoom() {
   const handleSwipe = async (direction: 'left' | 'right') => {
     const restaurant = restaurants[currentIndex];
     
-    let voteType = '';
+    let voteType: Vote['vote_type'];
     if (sessionData?.session_type === 'discovery') {
       voteType = direction === 'right' ? 'not_been_here' : 'been_here';
     } else {
@@ -134,26 +182,23 @@ export default function SessionRoom() {
     const threshold = sessionData?.match_logic === 'unanimous' ? participantCount : Math.ceil(participantCount / 2);
     const positiveType = sessionData?.session_type === 'discovery' ? 'not_been_here' : 'like';
 
-    // Count positive votes per restaurant
     const counts: Record<string, number> = {};
-    allVotes.forEach(vote => {
+    allVotes.forEach((vote: Vote) => {
       if (vote.vote_type === positiveType) {
         counts[vote.restaurant_id] = (counts[vote.restaurant_id] || 0) + 1;
       }
     });
 
-    // Find all restaurants that met the threshold
     const matches = Object.entries(counts)
-      .filter(([_, count]) => count >= threshold)
+      .filter(([, count]) => count >= threshold)
       .map(([id]) => id);
 
-    // Pick the winner (highest count, then random if tied)
     const winningId = matches.length > 0 
       ? matches.sort((a, b) => counts[b] - counts[a])[0] 
-      : restaurants[0]?.id; // Fallback to first restaurant if no match found
+      : restaurants[0]?.id;
 
     const win = restaurants.find(r => r.id === winningId);
-    setWinner(win);
+    setWinner(win || null);
   };
 
   const copyLink = () => {
@@ -187,6 +232,15 @@ export default function SessionRoom() {
     );
   }
 
+  if (isLoadingRestaurants) {
+    return (
+      <div className="flex flex-col min-h-screen bg-[#FF4D00] text-white items-center justify-center p-6 text-center font-black uppercase italic tracking-tighter">
+        <Utensils className="w-12 h-12 animate-spin mb-4" />
+        Finding Food...
+      </div>
+    );
+  }
+
   if (view === 'finished') {
     return (
       <div className="flex flex-col min-h-screen bg-[#FF4D00] text-white items-center justify-center p-6 text-center">
@@ -194,12 +248,12 @@ export default function SessionRoom() {
           <div className="bg-[#FFB800] w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-2xl">
             <Utensils className="w-10 h-10 text-[#FF4D00]" />
           </div>
-          <h1 className="text-4xl font-black uppercase italic tracking-tighter">It's a Match!</h1>
+          <h1 className="text-4xl font-black uppercase italic tracking-tighter">It&apos;s a Match!</h1>
           <div className="space-y-2">
             <p className="text-white/60 font-bold uppercase tracking-widest text-xs">You should head to:</p>
             <h2 className="text-5xl font-black uppercase italic text-[#FFB800] leading-none">{winner?.name || "Loading..."}</h2>
           </div>
-          <button onClick={() => window.location.reload()} className="w-full bg-white text-[#FF4D00] py-4 rounded-2xl font-black text-xl uppercase tracking-tighter">Try Again</button>
+          <button onClick={() => typeof window !== 'undefined' && window.location.reload()} className="w-full bg-white text-[#FF4D00] py-4 rounded-2xl font-black text-xl uppercase tracking-tighter">Try Again</button>
         </motion.div>
       </div>
     );
@@ -242,37 +296,8 @@ export default function SessionRoom() {
             ))}
           </ul>
         </div>
-        <button onClick={handleStartSwiping} className="w-full bg-[#FFB800] text-[#FF4D00] py-6 rounded-3xl font-black text-2xl uppercase tracking-tighter shadow-2xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3"><Play className="w-8 h-8 fill-current" />Start Swiping</button>
+        <button onClick={handleStartSwiping} disabled={participants.length === 0} className="w-full bg-[#FFB800] text-[#FF4D00] py-6 rounded-3xl font-black text-2xl uppercase tracking-tighter shadow-2xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"><Play className="w-8 h-8 fill-current" />Start Swiping</button>
       </main>
     </div>
   );
 }
-
-const MOCK_RESTAURANTS = [
-  {
-    id: "1",
-    name: "Burger Heaven",
-    image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=800&auto=format&fit=crop",
-    rating: 4.8,
-    distance: "0.4 mi",
-    reviews: {
-      high: "Best wagyu burger in the city. The truffle aioli is liquid gold.",
-      mid: "Great food, but the line was wrapping around the block.",
-      low: "Portion sizes are a bit small for the price point."
-    },
-    dishes: ["Wagyu Smash", "Truffle Fries", "Spiced Shake"]
-  },
-  {
-    id: "2",
-    name: "Taco Loco",
-    image: "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?q=80&w=800&auto=format&fit=crop",
-    rating: 4.5,
-    distance: "1.2 mi",
-    reviews: {
-      high: "The Al Pastor tacos are authentic and incredibly juicy.",
-      mid: "Solid tacos, but the salsa bar was a bit messy when I visited.",
-      low: "Way too spicy even for the 'mild' options."
-    },
-    dishes: ["Al Pastor", "Street Corn", "Horchata"]
-  }
-];

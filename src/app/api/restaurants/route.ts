@@ -1,5 +1,28 @@
 import { NextResponse } from 'next/server';
 
+interface GooglePlacePhoto {
+  name: string;
+  widthPx: number;
+  heightPx: number;
+}
+
+interface GooglePlaceReview {
+  rating: number;
+  text: {
+    text: string;
+    languageCode: string;
+  };
+}
+
+interface GooglePlace {
+  id: string;
+  displayName?: { text: string };
+  rating?: number;
+  photos?: GooglePlacePhoto[];
+  reviews?: GooglePlaceReview[];
+  types?: string[];
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const zipCode = searchParams.get('zipCode');
@@ -9,6 +32,10 @@ export async function GET(request: Request) {
   }
 
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json({ error: 'Google Places API key is missing in environment variables' }, { status: 500 });
+  }
+
   // Using Places API (New) Text Search
   const url = 'https://places.googleapis.com/v1/places:searchText';
 
@@ -25,7 +52,7 @@ export async function GET(request: Request) {
       })
     });
 
-    const data = await response.json();
+    const data: { places?: GooglePlace[], error?: { message: string } } = await response.json();
 
     if (!response.ok) {
       console.error('Google API Error:', data);
@@ -36,8 +63,8 @@ export async function GET(request: Request) {
       return NextResponse.json([]);
     }
 
-    const formatted = data.places.slice(0, 20).map((r: any) => {
-      const sortedReviews = r.reviews?.sort((a: any, b: any) => (b.rating || 0) - (a.rating || 0)) || [];
+    const formatted = data.places.slice(0, 20).map((r: GooglePlace) => {
+      const sortedReviews = r.reviews?.sort((a, b) => (b.rating || 0) - (a.rating || 0)) || [];
       return {
         id: r.id,
         name: r.displayName?.text || 'Unknown Restaurant',
@@ -57,7 +84,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(formatted);
   } catch (error) {
-    console.error('Places API Error:', error);
-    return NextResponse.json({ error: 'Failed to fetch restaurants' }, { status: 500 });
+    console.error('Places API Catch Error:', error);
+    return NextResponse.json({ error: (error as Error).message || 'Failed to fetch restaurants' }, { status: 500 });
   }
 }
