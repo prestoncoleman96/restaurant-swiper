@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Utensils, Search, Heart, MapPin, Users, CheckCircle2 } from "lucide-react";
+import { Utensils, Search, Heart, MapPin, Users, CheckCircle2, Clock, Calendar } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function Home() {
@@ -11,6 +11,8 @@ export default function Home() {
   const [hostName, setHostName] = useState("");
   const [mode, setMode] = useState<"discovery" | "preference" | null>(null);
   const [matchLogic, setMatchLogic] = useState<"unanimous" | "majority">("unanimous");
+  const [isAsync, setIsAsync] = useState(false);
+  const [openNow, setOpenNow] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCreateSession = async () => {
@@ -43,7 +45,9 @@ export default function Home() {
         .insert([{ 
           zip_code: zipCode, 
           session_type: mode,
-          match_logic: matchLogic
+          match_logic: matchLogic,
+          is_async: isAsync,
+          open_now: openNow
         }])
         .select()
         .single();
@@ -164,6 +168,38 @@ export default function Home() {
                 {matchLogic === "majority" && <CheckCircle2 className="w-3 h-3" />} Majority
               </button>
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              onClick={() => setIsAsync(!isAsync)}
+              className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                isAsync 
+                ? "border-[#FFB800] bg-[#FFB800]/20 text-white" 
+                : "border-white/10 bg-white/5 text-white/40"
+              }`}
+            >
+              {isAsync ? <Calendar className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+              <div className="text-left">
+                <p className="text-[10px] font-black uppercase leading-none">Timing</p>
+                <p className="text-[9px] font-bold">{isAsync ? "Async" : "Live"}</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setOpenNow(!openNow)}
+              className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                openNow 
+                ? "border-[#FFB800] bg-[#FFB800]/20 text-white" 
+                : "border-white/10 bg-white/5 text-white/40"
+              }`}
+            >
+              <Clock className="w-4 h-4" />
+              <div className="text-left">
+                <p className="text-[10px] font-black uppercase leading-none">Filter</p>
+                <p className="text-[9px] font-bold">{openNow ? "Open Now" : "Any Time"}</p>
+              </div>
+            </button>
           </div>
 
           <button

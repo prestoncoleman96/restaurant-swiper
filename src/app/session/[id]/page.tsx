@@ -13,6 +13,9 @@ interface Session {
   session_type: 'discovery' | 'preference';
   match_logic: 'unanimous' | 'majority';
   is_active: boolean;
+  is_async: boolean;
+  open_now: boolean;
+  results_revealed: boolean;
 }
 
 interface Participant {
@@ -26,7 +29,7 @@ interface Vote {
   session_id: string;
   participant_id: string;
   restaurant_id: string;
-  vote_type: 'like' | 'dislike' | 'not_been_here' | 'been_here';
+  vote_type: 'like' | 'dislike' | 'not_been_here' | 'been_here' | 'star';
 }
 
 interface Restaurant {
@@ -54,11 +57,13 @@ export default function SessionRoom() {
   const [isLoadingRestaurants, setIsLoadingRestaurants] = useState(true);
   const [sessionData, setSessionData] = useState<Session | null>(null);
   const [winner, setWinner] = useState<Restaurant | null>(null);
+  const [hasUsedStar, setHasUsedStar] = useState(false);
 
   useEffect(() => {
     if (!sessionId) return;
 
     const initSession = async () => {
+      // Listen for session changes (Reveal / Start)
       const { data: session } = await supabase
         .from('sessions')
         .select('*')
@@ -67,8 +72,9 @@ export default function SessionRoom() {
       
       if (session) {
         setSessionData(session);
-        fetchRestaurants(session.zip_code);
-        if (session.is_active) setView('swiping');
+        fetchRestaurants(session.zip_code, session.open_now);
+        if (session.is_active || session.is_async) setView('swiping');
+        if (session.results_revealed) setView('finished');
       }
 
       const { data } = await supabase
@@ -79,12 +85,22 @@ export default function SessionRoom() {
       if (data) setParticipants(data);
     };
 
-    const fetchRestaurants = async (zip: string) => {
+    const fetchRestaurants = async (zip: string, openNow: boolean) => {
       try {
-        const res = await fetch(`/api/restaurants?zipCode=${zip}`);
+        const res = await fetch(`/api/restaurants?zipCode=${zip}&openNow=${openNow}`);
         const data = await res.json();
         if (Array.isArray(data)) {
           setRestaurants(data);
+          
+          // Recover progress if user has already joined
+          if (currentParticipantId) {
+            const { count } = await supabase
+              .from('votes')
+              .select('*', { count: 'exact', head: true })
+              .eq('participant_id', currentParticipantId);
+            
+            if (count) setCurrentIndex(count);
+          }
         }
       } catch (err) {
         console.error("Failed to load restaurants", err);
@@ -112,7 +128,11 @@ export default function SessionRoom() {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'sessions', filter: `id=eq.${sessionId}` },
         (payload) => {
-          if (payload.new.is_active === true && view === 'waiting') {
+          const update = payload.new as Session;
+          if (update.results_revealed) {
+            setView('finished');
+            calculateWinner();
+          } else if (update.is_active === true && view === 'waiting') {
             setView('swiping');
           }
         }
@@ -123,7 +143,7 @@ export default function SessionRoom() {
       supabase.removeChannel(channel);
       supabase.removeChannel(sessionChannel);
     };
-  }, [sessionId, view]);
+  }, [sessionId, view, currentParticipantId]);
 
   const handleJoin = async () => {
     if (!guestName.trim()) return;
@@ -134,6 +154,14 @@ export default function SessionRoom() {
 
     if (!error && data) {
       setCurrentParticipantId(data.id);
+      
+      // Check for star usage
+      const { data: starVote } = await supabase
+        .from('votes')
+        .select('*')
+        .match({ participant_id: data.id, vote_type: 'star' });
+      if (starVote && starVote.length > 0) setHasUsedStar(true);
+
       setHasJoined(true);
     }
   };
@@ -143,11 +171,28 @@ export default function SessionRoom() {
     setView('swiping');
   };
 
-  const handleSwipe = async (direction: 'left' | 'right') => {
+  const handleRevealResults = async () => {
+    await supabase.from('sessions').update({ results_revealed: true }).eq('id', sessionId);
+  };
+
+  const handleSwipe = async (direction: 'left' | 'right' | 'star') => {
+    if (restaurants.length === 0 || !currentParticipantId) return;
+
     const restaurant = restaurants[currentIndex];
-    
+
+    // Double-vote prevention
+    const { count } = await supabase
+      .from('votes')
+      .select('*', { count: 'exact', head: true })
+      .match({ participant_id: currentParticipantId, restaurant_id: restaurant.id });
+
+    if (count && count > 0) return;
+
     let voteType: Vote['vote_type'];
-    if (sessionData?.session_type === 'discovery') {
+    if (direction === 'star') {
+      voteType = 'star';
+      setHasUsedStar(true);
+    } else if (sessionData?.session_type === 'discovery') {
       voteType = direction === 'right' ? 'not_been_here' : 'been_here';
     } else {
       voteType = direction === 'right' ? 'like' : 'dislike';
@@ -165,8 +210,11 @@ export default function SessionRoom() {
     setCurrentIndex(prev => prev + 1);
     
     if (currentIndex >= restaurants.length - 1) {
-      setView('finished');
-      calculateWinner();
+      // If async, we just wait. If live, we wait for reveal.
+      if (!sessionData?.is_async) {
+        calculateWinner(); // Local preview for host, or wait for reveal signal
+      }
+      setView('waiting'); // Show waiting for others screen
     }
   };
 
@@ -184,18 +232,28 @@ export default function SessionRoom() {
 
     const counts: Record<string, number> = {};
     allVotes.forEach((vote: Vote) => {
-      if (vote.vote_type === positiveType) {
-        counts[vote.restaurant_id] = (counts[vote.restaurant_id] || 0) + 1;
+      const weight = vote.vote_type === 'star' ? 2 : 1;
+      if (vote.vote_type === positiveType || vote.vote_type === 'star') {
+        counts[vote.restaurant_id] = (counts[vote.restaurant_id] || 0) + weight;
       }
     });
 
     const matches = Object.entries(counts)
-      .filter(([, count]) => count >= threshold)
+      .filter(([, count]) => count >= threshold);
+
+    if (matches.length === 0) {
+      setWinner(null);
+      return;
+    }
+
+    // Find Max Score
+    const maxScore = Math.max(...matches.map(([, count]) => count));
+    const contenders = matches
+      .filter(([, count]) => count === maxScore)
       .map(([id]) => id);
 
-    const winningId = matches.length > 0 
-      ? [...matches].sort((a, b) => counts[b] - counts[a])[0] 
-      : null;
+    // Random Tiebreaker
+    const winningId = contenders[Math.floor(Math.random() * contenders.length)];
 
     const win = restaurants.find(r => r.id === winningId);
     setWinner(win || null);
@@ -281,11 +339,16 @@ export default function SessionRoom() {
           <div className="bg-white/20 px-4 py-1 rounded-full text-xs font-bold text-white uppercase tracking-widest">{currentIndex + 1} / {restaurants.length}</div>
         </header>
         <div className="flex-1 relative flex items-center justify-center">
-          <AnimatePresence>{restaurants.slice(currentIndex, currentIndex + 1).map((restaurant) => (<SwipeCard key={restaurant.id} restaurant={restaurant} onSwipe={handleSwipe} />))}</AnimatePresence>
+          <AnimatePresence>
+            <SwipeCard 
+              key={restaurants[currentIndex].id} 
+              restaurant={restaurants[currentIndex]} 
+              onSwipe={handleSwipe} 
+              hasUsedStar={hasUsedStar}
+            />
+          </AnimatePresence>
         </div>
         <div className="p-10 flex justify-center items-center gap-8 z-10">
-          <button onClick={() => handleSwipe('left')} className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-xl text-red-500 hover:scale-110 transition-transform active:scale-90"><X className="w-8 h-8 stroke-[3]" /></button>
-          <button onClick={() => handleSwipe('right')} className="w-20 h-20 bg-[#FFB800] rounded-full flex items-center justify-center shadow-xl text-[#FF4D00] hover:scale-110 transition-transform active:scale-90 border-4 border-white"><Heart className="w-10 h-10 fill-current" /></button>
         </div>
       </div>
     );
@@ -311,6 +374,13 @@ export default function SessionRoom() {
           </ul>
         </div>
 
+        {currentIndex >= restaurants.length && !sessionData?.results_revealed && (
+           <div className="text-center p-4 bg-white/10 rounded-2xl border border-[#FFB800]">
+              <p className="font-black italic uppercase text-[#FFB800]">You&apos;re done swiping!</p>
+              <p className="text-xs text-white/60 uppercase">Waiting for the host to reveal results...</p>
+           </div>
+        )}
+
         {/* Desktop-Friendly Share Section */}
         <div className="bg-white/5 rounded-3xl p-4 border border-white/10 flex flex-col gap-3">
           <p className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-2">Invite Link</p>
@@ -327,7 +397,12 @@ export default function SessionRoom() {
           </div>
         </div>
 
-        <button onClick={handleStartSwiping} disabled={participants.length === 0} className="w-full bg-[#FFB800] text-[#FF4D00] py-6 rounded-3xl font-black text-2xl uppercase tracking-tighter shadow-2xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"><Play className="w-8 h-8 fill-current" />Start Swiping</button>
+        {participants[0]?.id === currentParticipantId && !sessionData?.is_active && !sessionData?.is_async && (
+           <button onClick={handleStartSwiping} disabled={participants.length === 0} className="w-full bg-[#FFB800] text-[#FF4D00] py-6 rounded-3xl font-black text-2xl uppercase tracking-tighter shadow-2xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"><Play className="w-8 h-8 fill-current" />Start Swiping</button>
+        )}
+        {participants[0]?.id === currentParticipantId && (sessionData?.is_active || sessionData?.is_async) && !sessionData?.results_revealed && (
+           <button onClick={handleRevealResults} className="w-full bg-white text-[#FF4D00] py-6 rounded-3xl font-black text-2xl uppercase tracking-tighter shadow-2xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3"><CheckCircle2 className="w-8 h-8" />Reveal Results</button>
+        )}
       </main>
     </div>
   );

@@ -18,10 +18,11 @@ interface Restaurant {
 
 interface SwipeCardProps {
   restaurant: Restaurant;
-  onSwipe: (direction: 'left' | 'right') => void;
+  onSwipe: (direction: 'left' | 'right' | 'star') => void;
+  hasUsedStar?: boolean;
 }
 
-export default function SwipeCard({ restaurant, onSwipe }: SwipeCardProps) {
+export default function SwipeCard({ restaurant, onSwipe, hasUsedStar }: SwipeCardProps) {
   const [showInfo, setShowInfo] = useState(false);
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]); // Keep rotate for visual effect
@@ -85,6 +86,30 @@ export default function SwipeCard({ restaurant, onSwipe }: SwipeCardProps) {
                 <Info className="w-6 h-6" />
               </button>
             </div>
+          </div>
+          
+          {/* Swipe Buttons Layer */}
+          <div className="absolute bottom-28 left-0 right-0 flex justify-center items-center gap-6 px-8">
+             <button 
+                onClick={() => onSwipe('left')}
+                className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg text-red-500 hover:scale-110 active:scale-90 transition-all"
+             >
+                <X className="w-6 h-6 stroke-[3]" />
+             </button>
+             {!hasUsedStar && (
+               <button 
+                  onClick={() => onSwipe('star')}
+                  className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-lg text-[#FFB800] hover:scale-110 active:scale-90 transition-all border-2 border-[#FFB800]"
+               >
+                  <Star className="w-7 h-7 fill-current" />
+               </button>
+             )}
+             <button 
+                onClick={() => onSwipe('right')}
+                className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg text-green-500 hover:scale-110 active:scale-90 transition-all"
+             >
+                <Heart className="w-6 h-6 fill-current" />
+             </button>
           </div>
 
           {/* Visual Indicators */}

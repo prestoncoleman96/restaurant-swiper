@@ -27,6 +27,7 @@ interface GooglePlace {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const zipCode = searchParams.get('zipCode') || '90210';
+  const openNow = searchParams.get('openNow') === 'true';
 
   if (!zipCode) {
     return NextResponse.json({ error: 'Zip code is required' }, { status: 400 });
@@ -54,7 +55,8 @@ export async function GET(request: Request) {
         'X-Goog-FieldMask': 'places.id,places.displayName,places.rating,places.photos,places.reviews,places.types,places.editorialSummary'
       },
       body: JSON.stringify({
-        textQuery: `restaurants in ${zipCode}`
+        textQuery: `restaurants in ${zipCode}`,
+        openNow: openNow
       })
     });
 
