@@ -32,15 +32,17 @@ export default function Home() {
 
       if (sessionError) throw sessionError;
 
-      await supabase.from('participants').insert([{
+      const { error: participantError } = await supabase.from('participants').insert([{
         session_id: session.id,
         guest_name: 'Host'
       }]);
 
+      if (participantError) throw participantError;
+
       router.push(`/session/${session.id}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating session:", error);
-      alert("Something went wrong. Make sure your Supabase tables are set up!");
+      alert(`Error: ${error.message || "Make sure your Supabase tables are set up!"}`);
     } finally {
       setIsLoading(false);
     }
