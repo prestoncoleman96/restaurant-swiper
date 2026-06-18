@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
-import { Utensils, Users, Share2, Play, CheckCircle2 } from "lucide-react";
+import { Utensils, Users, Share2, Play, CheckCircle2, Navigation, AlertTriangle, HelpCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import SwipeCard from "@/app/SwipeCard";
 import { AnimatePresence, motion } from "framer-motion";
+import confetti from "canvas-confetti";
 
 interface Session {
   id: string;
@@ -58,6 +59,14 @@ export default function SessionRoom() {
   const [sessionData, setSessionData] = useState<Session | null>(null);
   const [winner, setWinner] = useState<Restaurant | null>(null);
   const [hasUsedStar, setHasUsedStar] = useState(false);
+  const [progress, setProgress] = useState<Record<string, number>>({});
+  const [potentialWinners, setPotentialWinners] = useState<Restaurant[]>([]);
+
+  const triggerHaptic = (pattern: number | number[]) => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(pattern);
+    }
+  };
 
   const calculateWinner = useCallback(async () => {
     const { data: allVotes } = await supabase
@@ -83,6 +92,10 @@ export default function SessionRoom() {
       .filter(([, count]) => count >= threshold);
 
     if (matches.length === 0) {
+      // If unanimity failed, gather top 3 for the "Undecided?!" fallback
+      const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+      const top3 = sorted.map(([id]) => restaurants.find(r => r.id === id)).filter(Boolean) as Restaurant[];
+      setPotentialWinners(top3);
       setWinner(null);
       return;
     }
@@ -97,6 +110,15 @@ export default function SessionRoom() {
     const winningId = contenders[Math.floor(Math.random() * contenders.length)];
 
     const win = restaurants.find(r => r.id === winningId);
+    if (win) {
+      triggerHaptic([100, 50, 100]);
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#FF4D00', '#FFB800', '#ffffff']
+      });
+    }
     setWinner(win || null);
   }, [sessionId, participants, sessionData, restaurants]);
 
@@ -113,34 +135,46 @@ export default function SessionRoom() {
       
       if (session) {
         setSessionData(session);
-        fetchRestaurants(session.zip_code, session.open_now);
+        // fetchRestaurants will be called after currentParticipantId is determined, or if no participantId is found
         if (session.is_active || session.is_async) setView('swiping');
         if (session.results_revealed) setView('finished');
       }
-
+      
       const { data } = await supabase
         .from('participants')
         .select('*')
         .eq('session_id', sessionId);
       
       if (data) setParticipants(data);
+      
+      // Check localStorage for an existing participant ID for this session
+      const savedId = localStorage.getItem(`munch_match_participant_${sessionId}`);
+      if (savedId) {
+        setCurrentParticipantId(savedId);
+        setHasJoined(true);
+        // If a savedId exists, fetch restaurants and recover progress using that ID
+        if (session) await fetchRestaurants(session, savedId); 
+      }
     };
 
-    const fetchRestaurants = async (zip: string, openNow: boolean) => {
+    const fetchRestaurants = async (session: Session, participantIdForRecovery: string | null) => {
       try {
-        const res = await fetch(`/api/restaurants?zipCode=${zip}&openNow=${openNow}`);
+        const res = await fetch(`/api/restaurants?zipCode=${session.zip_code}&openNow=${session.open_now}&radius=${session.radius}&priceLevels=${session.price_levels?.join(',') || ''}`);
         const data = await res.json();
         if (Array.isArray(data)) {
+          console.log("Setting restaurants:", data.length); // Added for debugging
           setRestaurants(data);
           
           // Recover progress if user has already joined
-          if (currentParticipantId) {
+          if (participantIdForRecovery && data.length > 0) { // Only recover if there are restaurants
             const { count } = await supabase
               .from('votes')
               .select('*', { count: 'exact', head: true })
-              .eq('participant_id', currentParticipantId);
-            
-            if (count) setCurrentIndex(count);
+              .match({ participant_id: participantIdForRecovery, session_id: sessionId });
+            if (count) {
+              console.log("Recovered progress, setting currentIndex to:", count); // Added for debugging
+              setCurrentIndex(count);
+            }
           }
         }
       } catch (err) {
@@ -149,8 +183,30 @@ export default function SessionRoom() {
         setIsLoadingRestaurants(false);
       }
     };
-
+    
+    // Initial fetch of restaurants if no participantId is found initially, or if sessionData changes
+    // This ensures restaurants are loaded even if the user hasn't joined yet or has no saved ID.
+    if (sessionData && !localStorage.getItem(`munch_match_participant_${sessionId}`)) fetchRestaurants(sessionData, null);
+    
     initSession();
+
+    // Keyboard Listener
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (view !== 'swiping') return;
+      if (e.key === 'ArrowLeft') handleSwipe('left');
+      if (e.key === 'ArrowRight') handleSwipe('right');
+      if (e.key === 'ArrowUp' && !hasUsedStar) handleSwipe('star');
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    // Progress Syncing
+    const syncProgress = async () => {
+      const { data: votes } = await supabase.from('votes').select('participant_id').eq('session_id', sessionId);
+      const counts: any = {};
+      votes?.forEach(v => counts[v.participant_id] = (counts[v.participant_id] || 0) + 1);
+      setProgress(counts);
+    };
+    syncProgress();
 
     const channel = supabase
       .channel(`session_room_${sessionId}`)
@@ -160,6 +216,11 @@ export default function SessionRoom() {
         (payload) => {
           setParticipants((current) => [...current, payload.new as Participant]);
         }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'votes', filter: `session_id=eq.${sessionId}` },
+        () => syncProgress()
       )
       .subscribe();
 
@@ -183,8 +244,9 @@ export default function SessionRoom() {
     return () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(sessionChannel);
+      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [sessionId, view, currentParticipantId, calculateWinner]); // calculateWinner is now defined before this hook
+  }, [sessionId, view, currentParticipantId, calculateWinner, hasUsedStar, sessionData]);
 
   const handleJoin = async () => {
     if (!guestName.trim()) return;
@@ -194,6 +256,7 @@ export default function SessionRoom() {
     ]).select().single();
 
     if (!error && data) {
+      localStorage.setItem(`munch_match_participant_${sessionId}`, data.id);
       setCurrentParticipantId(data.id);
       
       // Check for star usage
@@ -204,6 +267,10 @@ export default function SessionRoom() {
       if (starVote && starVote.length > 0) setHasUsedStar(true);
 
       setHasJoined(true);
+      // After joining, fetch restaurants and recover progress
+      if (sessionData && data) { // Ensure data is available from the insert
+        await fetchRestaurants(sessionData, data.id);
+      }
     }
   };
 
@@ -232,6 +299,7 @@ export default function SessionRoom() {
     let voteType: Vote['vote_type'];
     if (direction === 'star') {
       voteType = 'star';
+      triggerHaptic(150);
       setHasUsedStar(true);
     } else if (sessionData?.session_type === 'discovery') {
       voteType = direction === 'right' ? 'not_been_here' : 'been_here';
@@ -330,9 +398,40 @@ export default function SessionRoom() {
           <h1 className="text-4xl font-black uppercase italic tracking-tighter">It&apos;s a Match!</h1>
           <div className="space-y-2">
             <p className="text-white/60 font-bold uppercase tracking-widest text-xs">You should head to:</p>
-            <h2 className="text-5xl font-black uppercase italic text-[#FFB800] leading-none">{winner?.name || "Loading..."}</h2>
+            <h2 className="text-5xl font-black uppercase italic text-[#FFB800] leading-none">{winner.name}</h2>
           </div>
+          <button 
+            onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(winner.name)}&query_place_id=${winner.id}`, '_blank')}
+            className="w-full bg-[#FFB800] text-[#FF4D00] py-4 rounded-2xl font-black text-xl uppercase flex items-center justify-center gap-2"
+          >
+            <Navigation className="w-6 h-6" /> Get Directions
+          </button>
           <button onClick={() => typeof window !== 'undefined' && window.location.reload()} className="w-full bg-white text-[#FF4D00] py-4 rounded-2xl font-black text-xl uppercase tracking-tighter">Try Again</button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (view === 'finished' && !winner && potentialWinners.length > 0) {
+    return (
+      <div className="flex flex-col min-h-screen bg-[#FF4D00] text-white p-6 text-center">
+        <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex-1 flex flex-col items-center justify-center max-w-sm mx-auto space-y-6">
+          <AlertTriangle className="w-16 h-16 text-[#FFB800]" />
+          <h1 className="text-5xl font-black italic uppercase leading-tight tracking-tighter">Undecided?!</h1>
+          <p className="text-white/80 font-bold">Unanimity failed. Here are the top contenders. Pick one fast!</p>
+          
+          <div className="w-full space-y-4">
+            {potentialWinners.map((p) => (
+              <button 
+                key={p.id}
+                onClick={() => setWinner(p)}
+                className="w-full bg-white/10 hover:bg-white/20 border border-white/20 p-6 rounded-3xl text-left flex justify-between items-center group"
+              >
+                <span className="text-2xl font-black italic uppercase group-hover:text-[#FFB800] transition-colors">{p.name}</span>
+                <HelpCircle className="w-6 h-6 text-white/40" />
+              </button>
+            ))}
+          </div>
         </motion.div>
       </div>
     );
@@ -379,10 +478,24 @@ export default function SessionRoom() {
       <main className="flex-1 max-w-md mx-auto w-full space-y-8">
         <div className="text-center"><h1 className="text-4xl font-black uppercase italic mb-2 tracking-tighter">Waiting Room</h1><p className="text-white/60 font-medium">Invite your friends. When everyone is here, start the match!</p></div>
         <div className="bg-white/10 rounded-3xl p-6 border border-white/20 min-h-[300px]">
-          <div className="flex items-center gap-2 mb-6 border-b border-white/10 pb-4"><Users className="w-5 h-5 text-[#FFB800]" /><h3 className="font-black uppercase tracking-widest text-sm">Squad ({participants.length})</h3></div>
+          <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-[#FFB800]" />
+              <h3 className="font-black uppercase tracking-widest text-sm">Squad ({participants.length})</h3>
+            </div>
+            <span className="text-[10px] font-black uppercase text-white/40">Progress</span>
+          </div>
           <ul className="space-y-4">
             {participants.map((p, i) => (
-              <li key={p.id} className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl"><div className="w-10 h-10 bg-[#FFB800] rounded-full flex items-center justify-center font-black text-[#FF4D00]">{p.guest_name ? p.guest_name[0].toUpperCase() : '?'}</div><span className="font-bold text-lg">{p.guest_name} {i === 0 && <span className="text-[10px] bg-white/20 px-2 py-1 rounded-full ml-2 uppercase">Host</span>}</span></li>
+              <li key={p.id} className="flex items-center justify-between bg-white/5 p-4 rounded-2xl">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-[#FFB800] rounded-full flex items-center justify-center font-black text-[#FF4D00]">{p.guest_name ? p.guest_name[0].toUpperCase() : '?'}</div>
+                  <span className="font-bold text-lg">{p.guest_name} {i === 0 && <span className="text-[10px] bg-white/20 px-2 py-1 rounded-full ml-2 uppercase">Host</span>}</span>
+                </div>
+                <div className="text-xs font-black text-[#FFB800]">
+                  {progress[p.id] || 0}/{restaurants.length}
+                </div>
+              </li>
             ))}
           </ul>
         </div>

@@ -20,9 +20,10 @@ interface SwipeCardProps {
   restaurant: Restaurant;
   onSwipe: (direction: 'left' | 'right' | 'star') => void;
   hasUsedStar?: boolean;
+  isLoading?: boolean;
 }
 
-export default function SwipeCard({ restaurant, onSwipe, hasUsedStar }: SwipeCardProps) {
+export default function SwipeCard({ restaurant, onSwipe, hasUsedStar, isLoading }: SwipeCardProps) {
   const [showInfo, setShowInfo] = useState(false);
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]); // Keep rotate for visual effect
@@ -35,11 +36,21 @@ export default function SwipeCard({ restaurant, onSwipe, hasUsedStar }: SwipeCar
     else if (info.offset.x < -100) onSwipe('left');
   };
 
+  if (isLoading) {
+    return (
+      <div className="absolute w-full max-w-sm aspect-[3/4] bg-white/10 rounded-[2.5rem] animate-pulse overflow-hidden">
+        <div className="h-full w-full bg-gradient-to-t from-black/40 to-transparent" />
+      </div>
+    );
+  }
+
   return (
     <AnimatePresence>
       {!showInfo && ( // Only render the swipable card if details are not shown
         <motion.div
           key={restaurant.id} // Key is essential for AnimatePresence
+          role="region"
+          aria-label={`Restaurant: ${restaurant.name}, Rated ${restaurant.rating} stars`}
           initial={{ opacity: 0, scale: 0.8, y: 50 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.8, y: -50 }}
@@ -92,20 +103,22 @@ export default function SwipeCard({ restaurant, onSwipe, hasUsedStar }: SwipeCar
           <div className="absolute bottom-28 left-0 right-0 flex justify-center items-center gap-6 px-8">
              <button 
                 onClick={() => onSwipe('left')}
+                aria-label="Not interested"
                 className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg text-red-500 hover:scale-110 active:scale-90 transition-all"
              >
                 <X className="w-6 h-6 stroke-[3]" />
              </button>
-             {!hasUsedStar && (
-               <button 
-                  onClick={() => onSwipe('star')}
-                  className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-lg text-[#FFB800] hover:scale-110 active:scale-90 transition-all border-2 border-[#FFB800]"
-               >
-                  <Star className="w-7 h-7 fill-current" />
-               </button>
-             )}
+             <button 
+                onClick={() => !hasUsedStar && onSwipe('star')}
+                disabled={hasUsedStar}
+                aria-label={hasUsedStar ? "Super Like Spent" : "Super Like"}
+                className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all border-2 ${hasUsedStar ? "bg-gray-200 text-gray-400 border-transparent grayscale opacity-50" : "bg-white text-[#FFB800] border-[#FFB800] hover:scale-110 active:scale-90"}`}
+             >
+                <Star className={`w-7 h-7 ${!hasUsedStar ? "fill-current" : ""}`} />
+             </button>
              <button 
                 onClick={() => onSwipe('right')}
+                aria-label="Interested"
                 className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg text-green-500 hover:scale-110 active:scale-90 transition-all"
              >
                 <Heart className="w-6 h-6 fill-current" />

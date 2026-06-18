@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Utensils, Search, Heart, MapPin, Users, CheckCircle2, Clock, Calendar } from "lucide-react";
+import { Utensils, Search, Heart, MapPin, Users, CheckCircle2, Clock, Calendar, ChevronDown, ChevronUp, DollarSign, Navigation2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function Home() {
@@ -11,9 +11,12 @@ export default function Home() {
   const [hostName, setHostName] = useState("");
   const [mode, setMode] = useState<"discovery" | "preference" | null>(null);
   const [matchLogic, setMatchLogic] = useState<"unanimous" | "majority">("unanimous");
+  const [radius, setRadius] = useState(5);
+  const [priceLevels, setPriceLevels] = useState<number[]>([]);
   const [isAsync, setIsAsync] = useState(false);
   const [openNow, setOpenNow] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
   const handleCreateSession = async () => {
     if (!zipCode || zipCode.length < 5 || !hostName.trim()) {
@@ -47,7 +50,9 @@ export default function Home() {
           session_type: mode,
           match_logic: matchLogic,
           is_async: isAsync,
-          open_now: openNow
+          open_now: openNow,
+          radius: radius,
+          price_levels: priceLevels
         }])
         .select()
         .single();
@@ -114,6 +119,22 @@ export default function Home() {
                 className="w-full bg-white text-black py-4 pl-12 pr-4 rounded-2xl font-bold text-lg focus:ring-4 focus:ring-[#FFB800] outline-none transition-all"
               />
             </div>
+          </div>
+
+          <div className="space-y-4 text-left">
+            <div className="flex justify-between items-center ml-1">
+              <label className="text-sm font-bold uppercase tracking-widest text-white/80 flex items-center gap-2">
+                <Navigation2 className="w-4 h-4" /> Distance: {radius} miles
+              </label>
+            </div>
+            <input 
+              type="range" 
+              min="3" 
+              max="30" 
+              value={radius} 
+              onChange={(e) => setRadius(parseInt(e.target.value))}
+              className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-[#FFB800]"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
