@@ -59,6 +59,47 @@ export default function SessionRoom() {
   const [winner, setWinner] = useState<Restaurant | null>(null);
   const [hasUsedStar, setHasUsedStar] = useState(false);
 
+  const calculateWinner = useCallback(async () => {
+    const { data: allVotes } = await supabase
+      .from('votes')
+      .select('*')
+      .eq('session_id', sessionId);
+
+    if (!allVotes) return;
+
+    const participantCount = participants.length;
+    const threshold = sessionData?.match_logic === 'unanimous' ? participantCount : Math.ceil(participantCount / 2);
+    const positiveType = sessionData?.session_type === 'discovery' ? 'not_been_here' : 'like';
+
+    const counts: Record<string, number> = {};
+    allVotes.forEach((vote: Vote) => {
+      const weight = vote.vote_type === 'star' ? 2 : 1;
+      if (vote.vote_type === positiveType || vote.vote_type === 'star') {
+        counts[vote.restaurant_id] = (counts[vote.restaurant_id] || 0) + weight;
+      }
+    });
+
+    const matches = Object.entries(counts)
+      .filter(([, count]) => count >= threshold);
+
+    if (matches.length === 0) {
+      setWinner(null);
+      return;
+    }
+
+    // Find Max Score
+    const maxScore = Math.max(...matches.map(([, count]) => count));
+    const contenders = matches
+      .filter(([, count]) => count === maxScore)
+      .map(([id]) => id);
+
+    // Random Tiebreaker
+    const winningId = contenders[Math.floor(Math.random() * contenders.length)];
+
+    const win = restaurants.find(r => r.id === winningId);
+    setWinner(win || null);
+  }, [sessionId, participants, sessionData, restaurants]);
+
   useEffect(() => {
     if (!sessionId) return;
 
@@ -143,7 +184,7 @@ export default function SessionRoom() {
       supabase.removeChannel(channel);
       supabase.removeChannel(sessionChannel);
     };
-  }, [sessionId, view, currentParticipantId, calculateWinner]);
+  }, [sessionId, view, currentParticipantId, calculateWinner]); // calculateWinner is now defined before this hook
 
   const handleJoin = async () => {
     if (!guestName.trim()) return;
@@ -218,47 +259,6 @@ export default function SessionRoom() {
     }
   };
 
-  const calculateWinner = useCallback(async () => {
-    const { data: allVotes } = await supabase
-      .from('votes')
-      .select('*')
-      .eq('session_id', sessionId);
-
-    if (!allVotes) return;
-
-    const participantCount = participants.length;
-    const threshold = sessionData?.match_logic === 'unanimous' ? participantCount : Math.ceil(participantCount / 2);
-    const positiveType = sessionData?.session_type === 'discovery' ? 'not_been_here' : 'like';
-
-    const counts: Record<string, number> = {};
-    allVotes.forEach((vote: Vote) => {
-      const weight = vote.vote_type === 'star' ? 2 : 1;
-      if (vote.vote_type === positiveType || vote.vote_type === 'star') {
-        counts[vote.restaurant_id] = (counts[vote.restaurant_id] || 0) + weight;
-      }
-    });
-
-    const matches = Object.entries(counts)
-      .filter(([, count]) => count >= threshold);
-
-    if (matches.length === 0) {
-      setWinner(null);
-      return;
-    }
-
-    // Find Max Score
-    const maxScore = Math.max(...matches.map(([, count]) => count));
-    const contenders = matches
-      .filter(([, count]) => count === maxScore)
-      .map(([id]) => id);
-
-    // Random Tiebreaker
-    const winningId = contenders[Math.floor(Math.random() * contenders.length)];
-
-    const win = restaurants.find(r => r.id === winningId);
-    setWinner(win || null);
-  }, [sessionId, participants, sessionData, restaurants]);
-
   const copyLink = async () => {
     const url = window.location.href;
 
@@ -315,8 +315,15 @@ export default function SessionRoom() {
 
   if (view === 'finished') {
     return (
-      <div className="flex flex-col min-h-screen bg-[#FF4D00] text-white items-center justify-center p-6 text-center">
-        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-sm space-y-8 bg-white/10 p-10 rounded-[3rem] backdrop-blur-md border border-white/20">
+      <div className="flex flex-col min-h-screen bg-[#FF4D00] text-white p-6">
+        <header className="flex justify-between items-center mb-8">
+          <div className="flex items-center gap-2"><div className="bg-white p-2 rounded-full"><Utensils className="w-6 h-6 text-[#FF4D00]" /></div><span className="font-black italic uppercase tracking-tighter text-xl">Munch Match</span></div>
+          <button onClick={copyLink} className="bg-white/20 hover:bg-white/30 p-3 rounded-full transition-colors flex items-center gap-2">
+            {copied ? <CheckCircle2 className="w-5 h-5 text-green-400" /> : <Share2 className="w-5 h-5" />}
+            <span className="text-xs font-bold uppercase">{copied ? 'Copied!' : 'Share'}</span>
+          </button>
+        </header>
+        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex-1 flex flex-col items-center justify-center text-center w-full max-w-sm mx-auto space-y-8 bg-white/10 p-10 rounded-[3rem] backdrop-blur-md border border-white/20">
           <div className="bg-[#FFB800] w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-2xl">
             <Utensils className="w-10 h-10 text-[#FF4D00]" />
           </div>
@@ -334,9 +341,15 @@ export default function SessionRoom() {
   if (view === 'swiping') {
     return (
       <div className="flex flex-col min-h-screen bg-[#FF4D00] overflow-hidden">
-        <header className="p-6 flex justify-between items-center z-10">
-          <div className="flex items-center gap-2"><div className="bg-white p-2 rounded-full"><Utensils className="w-4 h-4 text-[#FF4D00]" /></div><span className="font-black italic uppercase tracking-tighter text-white">Matching...</span></div>
-          <div className="bg-white/20 px-4 py-1 rounded-full text-xs font-bold text-white uppercase tracking-widest">{currentIndex + 1} / {restaurants.length}</div>
+        <header className="p-6 flex justify-between items-center z-20">
+          <div className="flex items-center gap-2"><div className="bg-white p-2 rounded-full"><Utensils className="w-4 h-4 text-[#FF4D00]" /></div><span className="font-black italic uppercase tracking-tighter text-white">Munch Match</span></div>
+          <div className="flex items-center gap-4">
+            <button onClick={copyLink} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition-colors flex items-center gap-2">
+              {copied ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <Share2 className="w-4 h-4" />}
+              <span className="text-[10px] font-bold uppercase">{copied ? 'Copied!' : 'Share'}</span>
+            </button>
+            <div className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-widest">{currentIndex + 1} / {restaurants.length}</div>
+          </div>
         </header>
         <div className="flex-1 relative flex items-center justify-center">
           <AnimatePresence>
