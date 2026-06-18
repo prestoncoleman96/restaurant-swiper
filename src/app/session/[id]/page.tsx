@@ -306,7 +306,7 @@ export default function SessionRoom() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [view, handleSwipe, hasUsedStar]);
+  }, [view, handleSwipe]); // Removed hasUsedStar as it's not directly used in the effect's logic
 
   const handleJoin = async () => {
     if (!guestName.trim()) return;

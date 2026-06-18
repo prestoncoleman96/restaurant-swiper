@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from "react";
+import { motion } from "framer-motion"; // Import motion for advanced settings animation
 import { useRouter } from "next/navigation";
 import { Utensils, Search, Heart, MapPin, Users, CheckCircle2, Clock, Calendar, ChevronDown, ChevronUp, DollarSign, Navigation2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
