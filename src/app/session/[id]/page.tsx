@@ -65,6 +65,7 @@ export default function SessionRoom() {
   const [hasUsedStar, setHasUsedStar] = useState(false);
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [potentialWinners, setPotentialWinners] = useState<Restaurant[]>([]);
+  const [isSwiping, setIsSwiping] = useState(false); // New state to prevent rapid swipes
   const [isNewSessionFlag, setIsNewSessionFlag] = useState(false); // New state for new session
 
   const triggerHaptic = useCallback((pattern: number | number[]) => {
@@ -254,10 +255,12 @@ export default function SessionRoom() {
 
   // Define handleSwipe using useCallback
   const handleSwipe = useCallback(async (direction: 'left' | 'right' | 'star') => {
-    if (restaurants.length === 0 || !currentParticipantId) return;
+    if (isSwiping || restaurants.length === 0 || !currentParticipantId) return; // Block if already swiping or no data
+
+    setIsSwiping(true); // Set flag to block further swipes
 
     const restaurant = restaurants[currentIndex];
-
+    
     // Double-vote prevention
     const { count } = await supabase
       .from('votes')
@@ -265,7 +268,10 @@ export default function SessionRoom() {
       .match({ participant_id: currentParticipantId, restaurant_id: restaurant.id });
 
     if (count && count > 0) return;
-
+    
+    // If already voted, release flag and return
+    if (count && count > 0) { setIsSwiping(false); return; }
+    
     let voteType: Vote['vote_type'];
     if (direction === 'star') {
       voteType = 'star';
@@ -287,6 +293,7 @@ export default function SessionRoom() {
     }
 
     setCurrentIndex(prev => prev + 1);
+    setIsSwiping(false); // Release flag after swipe is processed
     
     if (currentIndex >= restaurants.length - 1) {
       if (!sessionData?.is_async) {
@@ -294,7 +301,7 @@ export default function SessionRoom() {
       }
       setView('waiting');
     }
-  }, [restaurants, currentIndex, currentParticipantId, sessionData, sessionId, triggerHaptic, calculateWinner]);
+  }, [restaurants, currentIndex, currentParticipantId, sessionData, sessionId, triggerHaptic, calculateWinner, isSwiping]);
 
   // Separate useEffect for keyboard listener, depends on handleSwipe
   useEffect(() => {
