@@ -201,8 +201,22 @@ export default function SessionRoom() {
     setWinner(win || null);
   };
 
-  const copyLink = () => {
+  const copyLink = async () => {
     const url = window.location.href;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Munch Match Squad',
+          text: `Join my ${sessionData?.session_type} squad and let's find somewhere to eat!`,
+          url: url,
+        });
+        return;
+      } catch (err) {
+        console.log("Share cancelled or failed", err);
+      }
+    }
+
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -296,6 +310,23 @@ export default function SessionRoom() {
             ))}
           </ul>
         </div>
+
+        {/* Desktop-Friendly Share Section */}
+        <div className="bg-white/5 rounded-3xl p-4 border border-white/10 flex flex-col gap-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-2">Invite Link</p>
+          <div className="flex gap-2">
+            <div className="flex-1 bg-black/20 rounded-xl px-4 py-3 text-xs font-mono truncate text-white/60 border border-white/5">
+              {typeof window !== 'undefined' ? window.location.href : 'Loading...'}
+            </div>
+            <button 
+              onClick={copyLink}
+              className="bg-white text-[#FF4D00] px-4 rounded-xl font-bold text-xs uppercase hover:bg-[#FFB800] transition-colors"
+            >
+              {copied ? 'Saved!' : 'Copy'}
+            </button>
+          </div>
+        </div>
+
         <button onClick={handleStartSwiping} disabled={participants.length === 0} className="w-full bg-[#FFB800] text-[#FF4D00] py-6 rounded-3xl font-black text-2xl uppercase tracking-tighter shadow-2xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"><Play className="w-8 h-8 fill-current" />Start Swiping</button>
       </main>
     </div>

@@ -81,15 +81,33 @@ export async function GET(request: Request) {
 
         // Regex to find items mentioned after "praise" or "action" words
         // Looks for things like "best [dish]", "delicious [dish]", "ordered the [dish]"
-        const dishRegex = /(?:best|amazing|delicious|favorite|must try|try the|ordered the|love the|incredible) ([a-z\s]{3,20})(?=\s(?:is|was|were|are|!|\.|\,))/gi;
+        const dishRegex = /(?:best|amazing|delicious|favorite|must try|try the|ordered the|love the|incredible|recommend the) ([a-z\s]{3,35})(?=\s(?:is|was|were|are|!|\.|\,|and|but|with|since))/gi;
         
         const matches = Array.from(highRatedReviews.matchAll(dishRegex), m => m[1].trim());
         
         // Filter out common "noise" words that aren't dishes
         const noise = ['place', 'service', 'food', 'experience', 'atmosphere', 'staff', 'everything', 'time', 'menu', 'restaurant'];
-        const uniqueDishes = [...new Set(matches)]
-          .filter(d => !noise.some(n => d.includes(n)))
-          .map(d => d.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '));
+        const stopSuffixes = ['it', 'the', 'is', 'was', 'and', 'but', 'with', 'for', 'this', 'since', 'well', 'also'];
+
+        const uniqueDishes = [...new Set(matches.map(m => {
+          let words = m.split(/\s+/);
+          
+          // Dishes are rarely more than 3 words; trim the excess to avoid "sentence" fragments
+          if (words.length > 3) words = words.slice(0, 3);
+          
+          // Strip out "stop words" from the end of the phrase (e.g. "Pizza since it" -> "Pizza")
+          while (words.length > 0 && stopSuffixes.includes(words[words.length - 1].toLowerCase())) {
+            words.pop();
+          }
+
+          return words.join(' ');
+        }))]
+        .filter(d => 
+          d.length > 2 && 
+          !noise.some(n => d.toLowerCase().includes(n)) &&
+          d.split(' ').length <= 3 // Final check to keep it concise
+        )
+        .map(d => d.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '));
 
         return uniqueDishes.slice(0, 3);
       };
