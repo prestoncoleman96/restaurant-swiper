@@ -41,9 +41,13 @@ export default function Home() {
 
       router.push(`/session/${session.id}`);
     } catch (error: unknown) {
-      console.error("Error creating session:", error);
-      const message = error instanceof Error ? error.message : "An unknown error occurred. Make sure your Supabase tables are set up!";
-      alert(`Error: ${message}`);
+      console.error("Session Creation Error:", error);
+      
+      const message = error instanceof Error 
+        ? error.message 
+        : (error as any)?.message || "An unknown error occurred.";
+
+      alert(`Database Error: ${message}\n\n1. Ensure your Supabase Env Vars are correct in Vercel.\n2. Ensure RLS is disabled in your Supabase SQL Editor.`);
     } finally {
       setIsLoading(false);
     }
