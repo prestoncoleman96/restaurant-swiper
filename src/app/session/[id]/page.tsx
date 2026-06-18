@@ -65,7 +65,8 @@ export default function SessionRoom() {
   const [hasUsedStar, setHasUsedStar] = useState(false);
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [potentialWinners, setPotentialWinners] = useState<Restaurant[]>([]);
-  const [isSwiping, setIsSwiping] = useState(false); // New state to prevent rapid swipes
+  const hasUsedStarRef = useRef(hasUsedStar); // Keep this, it uses useRef
+  const isSwipingRef = useRef(false); // Change to useRef
   const [isNewSessionFlag, setIsNewSessionFlag] = useState(false); // New state for new session
 
   const triggerHaptic = useCallback((pattern: number | number[]) => {
@@ -73,6 +74,10 @@ export default function SessionRoom() {
       navigator.vibrate(pattern);
     }
   }, []);
+
+  useEffect(() => {
+    hasUsedStarRef.current = hasUsedStar;
+  }, [hasUsedStar]);
 
   const fetchRestaurants = useCallback(async (session: Session, participantIdForRecovery: string | null) => {
     try {
@@ -255,11 +260,11 @@ export default function SessionRoom() {
 
   // Define handleSwipe using useCallback
   const handleSwipe = useCallback(async (direction: 'left' | 'right' | 'star') => {
-    if (isSwiping || restaurants.length === 0 || !currentParticipantId) {
+    if (isSwipingRef.current || restaurants.length === 0 || !currentParticipantId) {
       return; // Block if already swiping or no data
     }
 
-    setIsSwiping(true); // Set flag to block further swipes
+    isSwipingRef.current = true; // Set flag to block further swipes
 
     try {
       const restaurant = restaurants[currentIndex];
@@ -271,7 +276,7 @@ export default function SessionRoom() {
         .match({ participant_id: currentParticipantId, restaurant_id: restaurant.id });
 
       if (count && count > 0) {
-        return; // Already voted, exit
+        return; // Already voted, exit (finally will reset isSwipingRef.current)
       }
       
       let voteType: Vote['vote_type'];
@@ -302,8 +307,8 @@ export default function SessionRoom() {
         }
         setView('waiting');
       }
-    } finally {
-      setIsSwiping(false); // Always release flag
+    } finally { // Always release flag
+      isSwipingRef.current = false;
     }
   }, [restaurants, currentIndex, currentParticipantId, sessionData, sessionId, triggerHaptic, calculateWinner]); // Removed isSwiping from dependencies
 
@@ -313,7 +318,7 @@ export default function SessionRoom() {
       if (view !== 'swiping') return;
       if (e.key === 'ArrowLeft') handleSwipe('left');
       if (e.key === 'ArrowRight') handleSwipe('right');
-      if (e.key === 'ArrowUp' && !hasUsedStarRef.current) handleSwipe('star'); // Use the ref here
+      if (e.key === 'ArrowUp' && !hasUsedStarRef.current) handleSwipe('star');
     };
 
     window.addEventListener('keydown', handleKeyDown);
