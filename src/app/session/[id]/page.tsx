@@ -62,11 +62,11 @@ export default function SessionRoom() {
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [potentialWinners, setPotentialWinners] = useState<Restaurant[]>([]);
 
-  const triggerHaptic = (pattern: number | number[]) => {
+  const triggerHaptic = useCallback((pattern: number | number[]) => {
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
       navigator.vibrate(pattern);
     }
-  };
+  }, []);
 
   const calculateWinner = useCallback(async () => {
     const { data: allVotes } = await supabase

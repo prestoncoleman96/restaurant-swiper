@@ -26,6 +26,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.1.7",
     "tailwindcss": "^4",
+    "@types/canvas-confetti": "^1.6.4",
     "typescript": "^5"
   }
 }
